@@ -47,6 +47,13 @@ import {
   GitHistoryStack,
   type GitHistorySearchHandle,
 } from "@/modules/git-history";
+import {
+  buildSshCommand,
+  HostsPanel,
+  SftpStack,
+  useHostsStore,
+  type HostProfile,
+} from "@/modules/hosts";
 import { getLaunchDir } from "@/lib/launchDir";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
@@ -116,6 +123,7 @@ import {
   useWorkspaceEnvStore,
   type WorkspaceEnv,
 } from "@/modules/workspace";
+import { openMainWindow } from "@/modules/windows";
 import { invoke } from "@tauri-apps/api/core";
 import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -151,8 +159,8 @@ function dirname(path: string | null): string | null {
 const SIDEBAR_DEFAULT_WIDTH = 260;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 480;
-const SIDEBAR_WIDTH_STORAGE_KEY = "terax.sidebar.width";
-const SIDEBAR_VIEW_STORAGE_KEY = "terax.sidebar.view";
+const SIDEBAR_WIDTH_STORAGE_KEY = "omnitab.sidebar.width";
+const SIDEBAR_VIEW_STORAGE_KEY = "omnitab.sidebar.view";
 
 function clampSidebarWidth(width: number): number {
   return Math.min(
@@ -176,7 +184,13 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
   try {
     const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-    if (stored === "explorer" || stored === "source-control") return stored;
+    if (
+      stored === "explorer" ||
+      stored === "source-control" ||
+      stored === "hosts"
+    ) {
+      return stored;
+    }
   } catch {
     // ignore
   }
@@ -191,6 +205,7 @@ export default function App() {
     newTab,
     newAgentTab,
     newPrivateTab,
+    newHostShellTab,
     openFileTab,
     pinTab,
     newPreviewTab,
@@ -200,6 +215,7 @@ export default function App() {
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
+    openHostSftpTab,
     closeTab,
     updateTab,
     selectByIndex,
@@ -492,6 +508,7 @@ export default function App() {
     void hydrateSessions();
     void useAgentsStore.getState().hydrate();
     void useSnippetsStore.getState().hydrate();
+    void useHostsStore.getState().hydrate();
   }, [hydrateSessions]);
 
   const activeTab = tabs.find((t) => t.id === activeId);
@@ -503,6 +520,7 @@ export default function App() {
   const isGitDiffTab =
     activeTab?.kind === "git-diff" || activeTab?.kind === "git-commit-file";
   const isGitHistoryTab = activeTab?.kind === "git-history";
+  const isSftpTab = activeTab?.kind === "hosts-sftp";
 
   // When an AI diff is approved (write_file applied to disk), reload any
   // open editor tabs for that path so the user sees the new content. We
@@ -595,12 +613,12 @@ export default function App() {
             if (res.kind !== "text" || typeof res.content !== "string") return;
             const parsed = parseThemeFile(res.content);
             if (!parsed.ok) {
-              console.warn("[terax] theme not applied:", parsed.error);
+              console.warn("[omnitab] theme not applied:", parsed.error);
               return;
             }
             await saveCustomTheme(parsed.theme);
           } catch (e) {
-            console.warn("[terax] theme ingest failed:", e);
+            console.warn("[omnitab] theme ingest failed:", e);
           }
         })();
       },
@@ -771,7 +789,7 @@ export default function App() {
       // Dispatch a window event the composer listens for. Same pattern as
       // selections — keeps file-explorer decoupled from the AI module.
       window.dispatchEvent(
-        new CustomEvent<string>("terax:ai-attach-file", { detail: path }),
+        new CustomEvent<string>("omnitab:ai-attach-file", { detail: path }),
       );
       openPanel();
       focusInput(null);
@@ -851,6 +869,32 @@ export default function App() {
   const openNewTab = useCallback(() => {
     newTab(inheritedCwdForNewTab());
   }, [newTab, inheritedCwdForNewTab]);
+
+  const openNewWindow = useCallback(() => {
+    void openMainWindow(inheritedCwdForNewTab());
+  }, [inheritedCwdForNewTab]);
+
+  const openHostsView = useCallback(() => {
+    cycleSidebarView("hosts");
+  }, [cycleSidebarView]);
+
+  const openHostShell = useCallback(
+    (host: HostProfile) => {
+      const { leafId } = newHostShellTab(inheritedCwdForNewTab(), host.name);
+      void (async () => {
+        await whenSessionReady(leafId);
+        writeToSession(leafId, `${buildSshCommand(host)}\r`);
+      })();
+    },
+    [inheritedCwdForNewTab, newHostShellTab],
+  );
+
+  const openHostSftp = useCallback(
+    (host: HostProfile) => {
+      openHostSftpTab(host);
+    },
+    [openHostSftpTab],
+  );
 
   const openNewPrivateTab = useCallback(() => {
     newPrivateTab(inheritedCwdForNewTab());
@@ -1071,6 +1115,7 @@ export default function App() {
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
       "commandPalette.open": () => setCommandPaletteOpen(true),
+      "window.new": openNewWindow,
       "tab.new": openNewTab,
       "tab.newPrivate": openNewPrivateTab,
       "tab.newPreview": () => openPreviewTab(""),
@@ -1294,6 +1339,7 @@ export default function App() {
         explorerRoot,
         home,
         openNewTab,
+        openNewWindow,
         openNewPrivate: openNewPrivateTab,
         openNewEditor: () => setNewEditorOpen(true),
         openNewPreview: () => openPreviewTab(""),
@@ -1319,6 +1365,7 @@ export default function App() {
       explorerRoot,
       home,
       openNewTab,
+      openNewWindow,
       openNewPrivateTab,
       openPreviewTab,
       handleCloseTabOrPane,
@@ -1404,7 +1451,7 @@ export default function App() {
           if (result !== "ready") {
             if (result === "timeout") {
               console.warn(
-                "[terax] Claude TUI did not appear in time; aborting prompt send",
+                "[omnitab] Claude TUI did not appear in time; aborting prompt send",
               );
             }
             useManagedAgentsStore.getState().remove(leafId);
@@ -1529,6 +1576,15 @@ export default function App() {
           onSearchHandle={setGitHistoryHandle}
         />
       </div>
+      <div
+        className={cn(
+          "absolute inset-0",
+          !isSftpTab && "invisible pointer-events-none",
+        )}
+        aria-hidden={!isSftpTab}
+      >
+        <SftpStack tabs={tabs} activeId={activeId} />
+      </div>
     </div>
   );
 
@@ -1542,10 +1598,12 @@ export default function App() {
             activeId={activeId}
             onSelect={setActiveId}
             onNew={openNewTab}
+            onNewWindow={openNewWindow}
             onNewPrivate={openNewPrivateTab}
             onNewPreview={() => openPreviewTab("")}
             onNewEditor={() => setNewEditorOpen(true)}
             onNewGitGraph={openGitGraphFromContext}
+            onNewHosts={openHostsView}
             onClose={handleClose}
             onPin={pinTab}
             onRename={handleRenameTab}
@@ -1594,13 +1652,18 @@ export default function App() {
                         onAttachToAgent={handleAttachFileToAgent}
                         onOpenMarkdownPreview={openMarkdownPreview}
                       />
-                    ) : (
+                    ) : sidebarView === "source-control" ? (
                       <SourceControlPanel
                         open
                         sourceControl={sourceControl}
                         onOpenDiff={openGitDiffTab}
                         onOpenGitGraph={openGitGraphFromContext}
                         onOpenFile={handleOpenFile}
+                      />
+                    ) : (
+                      <HostsPanel
+                        onOpenSsh={openHostShell}
+                        onOpenSftp={openHostSftp}
                       />
                     )}
                   </div>

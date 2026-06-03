@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { HostProfile } from "@/modules/hosts/types";
 import {
   findLeafCwd,
   hasLeaf,
@@ -102,6 +103,13 @@ export type GitCommitFileDiffTab = {
   originalPath: string | null;
 };
 
+export type HostsSftpTab = {
+  id: number;
+  kind: "hosts-sftp";
+  title: string;
+  host: HostProfile;
+};
+
 export type Tab =
   | TerminalTab
   | EditorTab
@@ -110,7 +118,8 @@ export type Tab =
   | AiDiffTab
   | GitDiffTab
   | GitHistoryTab
-  | GitCommitFileDiffTab;
+  | GitCommitFileDiffTab
+  | HostsSftpTab;
 
 export type TabPatch = Partial<{
   title: string;
@@ -215,6 +224,25 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     ]);
     setActiveId(tabId);
     return tabId;
+  }, []);
+
+  const newHostShellTab = useCallback((cwd: string | undefined, title: string) => {
+    const tabId = nextIdRef.current++;
+    const leafId = nextIdRef.current++;
+    setTabs((t) => [
+      ...t,
+      {
+        id: tabId,
+        kind: "terminal",
+        title,
+        cwd,
+        paneTree: { kind: "leaf", id: leafId, cwd },
+        activeLeafId: leafId,
+        customTitle: title,
+      },
+    ]);
+    setActiveId(tabId);
+    return { tabId, leafId };
   }, []);
 
   /**
@@ -562,6 +590,37 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     [],
   );
 
+  const openHostSftpTab = useCallback((host: HostProfile) => {
+    const curr = tabsRef.current;
+    const existing = curr.find(
+      (t) => t.kind === "hosts-sftp" && t.host.id === host.id,
+    );
+    const title = `${host.name} SFTP`;
+    if (existing) {
+      const nextTabs = curr.map((t) =>
+        t.id === existing.id ? { ...t, title, host } : t,
+      );
+      tabsRef.current = nextTabs;
+      setTabs(nextTabs);
+      setActiveId(existing.id);
+      return existing.id;
+    }
+    const id = nextIdRef.current++;
+    const nextTabs = [
+      ...curr,
+      {
+        id,
+        kind: "hosts-sftp",
+        title,
+        host,
+      } satisfies HostsSftpTab,
+    ];
+    tabsRef.current = nextTabs;
+    setTabs(nextTabs);
+    setActiveId(id);
+    return id;
+  }, []);
+
   const closeTab = useCallback((id: number) => {
     let toDispose: number[] = [];
     setTabs((curr) => {
@@ -808,6 +867,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     newTab,
     newAgentTab,
     newPrivateTab,
+    newHostShellTab,
     openFileTab,
     pinTab,
     newPreviewTab,
@@ -816,6 +876,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
+    openHostSftpTab,
     setAiDiffStatus,
     closeAiDiffTab,
     closeTab,

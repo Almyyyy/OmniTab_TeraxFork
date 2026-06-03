@@ -165,7 +165,7 @@
   --app-zoom: 1;
 }
 
-html[data-chrome="borderless"] .terax-bg-surface {
+html[data-chrome="borderless"] .omnitab-bg-surface {
   border-radius: 12px;
 }
 .zoom-content {
@@ -316,7 +316,7 @@ html *::-webkit-scrollbar {
   display: none;
 }
 
-@keyframes terax-collapsible-down {
+@keyframes omnitab-collapsible-down {
   from {
     height: 0;
     opacity: 0;
@@ -327,7 +327,7 @@ html *::-webkit-scrollbar {
   }
 }
 
-@keyframes terax-collapsible-up {
+@keyframes omnitab-collapsible-up {
   from {
     height: var(--radix-collapsible-content-height);
     opacity: 1;
@@ -338,12 +338,12 @@ html *::-webkit-scrollbar {
   }
 }
 
-.terax-collapsible-content {
+.omnitab-collapsible-content {
   overflow: hidden;
 }
-.terax-collapsible-content[data-state="open"] {
-  animation: terax-collapsible-down 180ms cubic-bezier(0.4, 0, 0.2, 1);
+.omnitab-collapsible-content[data-state="open"] {
+  animation: omnitab-collapsible-down 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.terax-collapsible-content[data-state="closed"] {
-  animation: terax-collapsible-up 160ms cubic-bezier(0.4, 0, 0.2, 1);
+.omnitab-collapsible-content[data-state="closed"] {
+  animation: omnitab-collapsible-up 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }

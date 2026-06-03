@@ -5,6 +5,7 @@ import { leafIds } from "@/modules/terminal";
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  BrowserIcon,
   Cancel01Icon,
   FileEditIcon,
   Globe02Icon,
@@ -50,6 +51,7 @@ export type CommandPaletteActionContext = {
   searchTarget: SearchTarget;
   explorerRoot: string | null;
   home: string | null;
+  openNewWindow: () => void;
   openNewTab: () => void;
   openNewPrivate: () => void;
   openNewEditor: () => void;
@@ -114,6 +116,15 @@ export function createCommandPaletteActions(
       shortcutId: "shortcuts.open",
       run: ctx.openShortcuts,
       deferRun: true,
+    },
+    {
+      id: "window.new",
+      label: "New window",
+      group: "General",
+      keywords: ["window", "new workspace"],
+      icon: BrowserIcon,
+      shortcutId: "window.new",
+      run: ctx.openNewWindow,
     },
     {
       id: "tab.new",

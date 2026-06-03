@@ -1,10 +1,12 @@
 pub mod modules;
 
-use modules::{agent, fs, git, net, pty, secrets, shell, workspace};
+use modules::{agent, fs, git, net, pty, secrets, sftp, shell, workspace};
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
-use tauri::{PhysicalPosition, WindowEvent};
+use tauri::WindowEvent;
+use tauri::{
+    Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 use tauri_plugin_window_state::StateFlags;
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
@@ -32,6 +34,85 @@ fn parse_launch_dir() -> Option<String> {
     None
 }
 
+fn next_main_window_label(app: &tauri::AppHandle) -> String {
+    for i in 2..u32::MAX {
+        let label = format!("main-{i}");
+        if app.get_webview_window(&label).is_none() {
+            return label;
+        }
+    }
+    format!("main-{}", uuid_like_suffix())
+}
+
+fn uuid_like_suffix() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos().to_string())
+        .unwrap_or_else(|_| "fallback".to_string())
+}
+
+fn encode_url_component(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for b in value.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+#[tauri::command]
+async fn open_main_window(
+    app: tauri::AppHandle,
+    source: WebviewWindow,
+    registry: State<'_, workspace::WorkspaceRegistry>,
+    cwd: Option<String>,
+) -> Result<(), String> {
+    let cwd = cwd.map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+    if let Some(ref cwd) = cwd {
+        let _ = registry.authorize(cwd).map_err(|e| e.to_string())?;
+    }
+
+    let label = next_main_window_label(&app);
+    let url = match cwd {
+        Some(cwd) => format!("index.html?launchCwd={}", encode_url_component(&cwd)),
+        None => "index.html".to_string(),
+    };
+
+    let builder = WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
+        .title("OmniTab")
+        .inner_size(800.0, 600.0)
+        .min_inner_size(420.0, 280.0)
+        .resizable(true)
+        .visible(false);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let builder = builder.decorations(false).transparent(true).shadow(false);
+
+    let window = builder.build().map_err(|e| e.to_string())?;
+
+    if let Ok(pos) = source.outer_position() {
+        let _ = window.set_position(PhysicalPosition::new(pos.x + 32, pos.y + 32));
+    } else {
+        let _ = window.center();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = window.set_decorations(false);
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
     let url_path = match tab.as_deref() {
@@ -46,7 +127,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
             // emit() serializes via JSON — no string-escape footgun, unlike
             // eval() with format!(). Frontend listens via Tauri event API.
-            let _ = window.emit("terax:settings-tab", t);
+            let _ = window.emit("omnitab:settings-tab", t);
         }
         return Ok(());
     }
@@ -216,12 +297,19 @@ pub fn run() {
             shell::shell_bg_logs,
             shell::shell_bg_kill,
             shell::shell_bg_list,
+            sftp::sftp_list,
+            sftp::sftp_mkdir,
+            sftp::sftp_delete,
+            sftp::sftp_rename,
+            sftp::sftp_download,
+            sftp::sftp_upload,
             workspace::wsl_list_distros,
             workspace::wsl_default_distro,
             workspace::wsl_home,
             workspace::workspace_authorize,
             workspace::workspace_current_dir,
             get_launch_dir,
+            open_main_window,
             open_settings_window,
             agent::agent_enable_claude_hooks,
             agent::agent_claude_hooks_status,

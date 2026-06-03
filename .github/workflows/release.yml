@@ -15,16 +15,16 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target aarch64-apple-darwin
+            args: --target aarch64-apple-darwin --config src-tauri/tauri.release.conf.json
             rust-target: aarch64-apple-darwin
           - platform: macos-latest
-            args: --target x86_64-apple-darwin
+            args: --target x86_64-apple-darwin --config src-tauri/tauri.release.conf.json
             rust-target: x86_64-apple-darwin
           - platform: ubuntu-22.04
-            args: ""
+            args: "--config src-tauri/tauri.release.conf.json"
             rust-target: ""
           - platform: windows-latest
-            args: ""
+            args: "--config src-tauri/tauri.release.conf.json"
             rust-target: ""
 
     runs-on: ${{ matrix.platform }}
@@ -89,7 +89,7 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Terax ${{ github.ref_name }}"
+          releaseName: "OmniTab ${{ github.ref_name }}"
           releaseBody: "See the assets to download and install. Auto-update is built in."
           releaseDraft: true
           prerelease: false

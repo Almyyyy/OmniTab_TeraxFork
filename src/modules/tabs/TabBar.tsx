@@ -20,12 +20,14 @@ import {
   Cancel01Icon,
   Clock01Icon,
   ComputerTerminal02Icon,
+  BrowserIcon,
   GitBranchIcon,
   GitCompareIcon,
   Globe02Icon,
   IncognitoIcon,
   PencilEdit02Icon,
   PlusSignIcon,
+  ServerStack02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useRef, useState } from "react";
@@ -37,10 +39,12 @@ type Props = {
   activeId: number;
   onSelect: (id: number) => void;
   onNew: () => void;
+  onNewWindow: () => void;
   onNewPrivate: () => void;
   onNewPreview: () => void;
   onNewEditor: () => void;
   onNewGitGraph: () => void;
+  onNewHosts: () => void;
   onClose: (id: number) => void;
   /** Pin (promote) a preview tab to persistent on double-click. */
   onPin: (id: number) => void;
@@ -54,10 +58,12 @@ export function TabBar({
   activeId,
   onSelect,
   onNew,
+  onNewWindow,
   onNewPrivate,
   onNewPreview,
   onNewEditor,
   onNewGitGraph,
+  onNewHosts,
   onClose,
   onPin,
   onRename,
@@ -256,6 +262,13 @@ export function TabBar({
                 {fmtShortcut(MOD_KEY, "T")}
               </span>
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNewWindow()}>
+              <HugeiconsIcon icon={BrowserIcon} size={14} strokeWidth={1.75} />
+              <span className="flex-1">Window</span>
+              <span className="text-xs text-muted-foreground">
+                {fmtShortcut(MOD_KEY, "N")}
+              </span>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onNewPrivate()}>
               <HugeiconsIcon
                 icon={IncognitoIcon}
@@ -288,6 +301,14 @@ export function TabBar({
             <DropdownMenuItem onSelect={() => onNewGitGraph()}>
               <HugeiconsIcon icon={GitBranchIcon} size={14} strokeWidth={1.75} />
               <span className="flex-1">Git Graph</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNewHosts()}>
+              <HugeiconsIcon
+                icon={ServerStack02Icon}
+                size={14}
+                strokeWidth={1.75}
+              />
+              <span className="flex-1">Hosts</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -345,6 +366,16 @@ function TabIcon({ tab }: { tab: Tab }) {
     return (
       <HugeiconsIcon
         icon={Clock01Icon}
+        size={14}
+        strokeWidth={2}
+        className="shrink-0"
+      />
+    );
+  }
+  if (tab.kind === "hosts-sftp") {
+    return (
+      <HugeiconsIcon
+        icon={ServerStack02Icon}
         size={14}
         strokeWidth={2}
         className="shrink-0"

@@ -6,6 +6,7 @@ import { IS_MAC, MOD_PROP } from "@/lib/platform";
 
 export type ShortcutId =
   | "commandPalette.open"
+  | "window.new"
   | "tab.new"
   | "tab.newPrivate"
   | "tab.newPreview"
@@ -79,6 +80,12 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Show keyboard shortcuts",
     group: "General",
     defaultBindings: [{ [MOD_PROP]: true, key: "k" }],
+  },
+  {
+    id: "window.new",
+    label: "New window",
+    group: "General",
+    defaultBindings: [{ [MOD_PROP]: true, key: "n" }],
   },
   {
     id: "tab.new",
