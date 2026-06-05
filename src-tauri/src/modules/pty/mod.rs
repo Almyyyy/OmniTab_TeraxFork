@@ -70,6 +70,28 @@ pub async fn pty_open(
 }
 
 #[tauri::command]
+pub fn pty_attach(
+    state: tauri::State<PtyState>,
+    id: u32,
+    on_data: Channel<Response>,
+    on_exit: Channel<i32>,
+) -> Result<(), String> {
+    let session = state
+        .sessions
+        .read()
+        .unwrap()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| {
+            log::warn!("pty_attach: unknown id={id}");
+            "no session".to_string()
+        })?;
+    *session.channels.lock().unwrap() = Some(session::PtyChannels { on_data, on_exit });
+    log::debug!("pty attached id={id}");
+    Ok(())
+}
+
+#[tauri::command]
 pub fn pty_write(state: tauri::State<PtyState>, id: u32, data: String) -> Result<(), String> {
     let session = state
         .sessions
@@ -188,8 +210,7 @@ fn shell_has_children(shell_pid: u32) -> bool {
     use std::mem::{size_of, zeroed};
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
-        TH32CS_SNAPPROCESS,
+        CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
     };
     unsafe {
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);

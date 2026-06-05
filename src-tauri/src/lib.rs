@@ -1,7 +1,7 @@
 pub mod modules;
 
-use modules::{agent, fs, git, net, pty, secrets, sftp, shell, workspace};
-use std::sync::Mutex;
+use modules::{agent, browser, fs, git, net, pty, secrets, sftp, shell, workspace};
+use std::{collections::HashMap, sync::Mutex};
 #[cfg(target_os = "macos")]
 use tauri::WindowEvent;
 use tauri::{
@@ -13,9 +13,120 @@ use tauri_plugin_window_state::StateFlags;
 #[derive(Default)]
 struct LaunchDir(Mutex<Option<String>>);
 
+#[derive(Default)]
+struct TabDragState(Mutex<TabDragStore>);
+
+#[derive(Default)]
+struct TabDragStore {
+    drag: Option<TabDragPayload>,
+    metrics: HashMap<String, serde_json::Value>,
+}
+
+struct TabDragPayload {
+    transfer_id: String,
+    payload: String,
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGEventSourceButtonState(state_id: u32, button: u32) -> bool;
+}
+
 #[tauri::command]
 fn get_launch_dir(state: State<'_, LaunchDir>) -> Option<String> {
     state.0.lock().expect("LaunchDir mutex poisoned").take()
+}
+
+#[tauri::command]
+fn tab_drag_start(
+    state: State<'_, TabDragState>,
+    transfer_id: String,
+    payload: String,
+) -> Result<(), String> {
+    state.0.lock().expect("TabDragState mutex poisoned").drag = Some(TabDragPayload {
+        transfer_id,
+        payload,
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn tab_drag_payload(state: State<'_, TabDragState>) -> Option<String> {
+    state
+        .0
+        .lock()
+        .expect("TabDragState mutex poisoned")
+        .drag
+        .as_ref()
+        .map(|p| p.payload.clone())
+}
+
+#[tauri::command]
+fn tab_drag_end(state: State<'_, TabDragState>, transfer_id: String) -> Result<(), String> {
+    let mut store = state.0.lock().expect("TabDragState mutex poisoned");
+    if store
+        .drag
+        .as_ref()
+        .map(|p| p.transfer_id.as_str() == transfer_id)
+        .unwrap_or(false)
+    {
+        store.drag = None;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn tab_drag_set_metrics(
+    state: State<'_, TabDragState>,
+    label: String,
+    metrics: serde_json::Value,
+) -> Result<(), String> {
+    state
+        .0
+        .lock()
+        .expect("TabDragState mutex poisoned")
+        .metrics
+        .insert(label, metrics);
+    Ok(())
+}
+
+#[tauri::command]
+fn tab_drag_clear_metrics(state: State<'_, TabDragState>, label: String) -> Result<(), String> {
+    state
+        .0
+        .lock()
+        .expect("TabDragState mutex poisoned")
+        .metrics
+        .remove(&label);
+    Ok(())
+}
+
+#[tauri::command]
+fn tab_drag_metrics(state: State<'_, TabDragState>) -> Vec<serde_json::Value> {
+    state
+        .0
+        .lock()
+        .expect("TabDragState mutex poisoned")
+        .metrics
+        .values()
+        .cloned()
+        .collect()
+}
+
+#[tauri::command]
+fn tab_drag_left_button_down() -> Option<bool> {
+    #[cfg(target_os = "macos")]
+    {
+        const COMBINED_SESSION_STATE: u32 = 0;
+        const LEFT_MOUSE_BUTTON: u32 = 0;
+        Some(unsafe { CGEventSourceButtonState(COMBINED_SESSION_STATE, LEFT_MOUSE_BUTTON) })
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
 }
 
 fn parse_launch_dir() -> Option<String> {
@@ -70,7 +181,7 @@ async fn open_main_window(
     source: WebviewWindow,
     registry: State<'_, workspace::WorkspaceRegistry>,
     cwd: Option<String>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let cwd = cwd.map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
     if let Some(ref cwd) = cwd {
         let _ = registry.authorize(cwd).map_err(|e| e.to_string())?;
@@ -82,7 +193,7 @@ async fn open_main_window(
         None => "index.html".to_string(),
     };
 
-    let builder = WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
+    let builder = WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App(url.into()))
         .title("OmniTab")
         .inner_size(800.0, 600.0)
         .min_inner_size(420.0, 280.0)
@@ -110,7 +221,7 @@ async fn open_main_window(
         let _ = window.set_decorations(false);
     }
 
-    Ok(())
+    Ok(label)
 }
 
 #[tauri::command]
@@ -217,6 +328,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
+        .on_page_load(browser::emit_page_load)
         .setup(|_app| {
             // macOS skips parent() for the settings window, so tie its lifecycle
             // to the main window here instead. Other platforms keep parent().
@@ -249,8 +361,10 @@ pub fn run() {
             registry
         })
         .manage(LaunchDir(Mutex::new(cli_dir)))
+        .manage(TabDragState::default())
         .invoke_handler(tauri::generate_handler![
             pty::pty_open,
+            pty::pty_attach,
             pty::pty_write,
             pty::pty_resize,
             pty::pty_close,
@@ -309,8 +423,23 @@ pub fn run() {
             workspace::workspace_authorize,
             workspace::workspace_current_dir,
             get_launch_dir,
+            tab_drag_start,
+            tab_drag_payload,
+            tab_drag_end,
+            tab_drag_set_metrics,
+            tab_drag_clear_metrics,
+            tab_drag_metrics,
+            tab_drag_left_button_down,
             open_main_window,
             open_settings_window,
+            browser::browser_navigate,
+            browser::browser_reload,
+            browser::browser_stop,
+            browser::browser_go_back,
+            browser::browser_go_forward,
+            browser::browser_set_zoom,
+            browser::browser_clear_data,
+            browser::browser_state,
             agent::agent_enable_claude_hooks,
             agent::agent_claude_hooks_status,
             secrets::secrets_get,

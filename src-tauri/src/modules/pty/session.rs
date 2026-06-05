@@ -49,6 +49,12 @@ pub struct Session {
     pub killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
     pub writer: Arc<Mutex<Box<dyn Write + Send>>>,
     pub master: Mutex<Box<dyn MasterPty + Send>>,
+    pub channels: Arc<Mutex<Option<PtyChannels>>>,
+}
+
+pub struct PtyChannels {
+    pub on_data: Channel<Response>,
+    pub on_exit: Channel<i32>,
 }
 
 impl Drop for Session {
@@ -79,7 +85,9 @@ struct ChildKillGuard {
 
 impl ChildKillGuard {
     fn new(killer: Box<dyn ChildKiller + Send + Sync>) -> Self {
-        Self { killer: Some(killer) }
+        Self {
+            killer: Some(killer),
+        }
     }
 
     fn disarm(&mut self) {
@@ -146,6 +154,8 @@ pub fn spawn(
         None => None,
     };
 
+    let channels = Arc::new(Mutex::new(Some(PtyChannels { on_data, on_exit })));
+
     let session = Arc::new(Session {
         #[cfg(windows)]
         _job: job,
@@ -153,12 +163,11 @@ pub fn spawn(
         killer: Mutex::new(killer),
         writer: writer.clone(),
         master: Mutex::new(pair.master),
+        channels: channels.clone(),
     });
 
-    let pending: Arc<(Mutex<Vec<u8>>, Condvar)> = Arc::new((
-        Mutex::new(Vec::with_capacity(READ_BUF)),
-        Condvar::new(),
-    ));
+    let pending: Arc<(Mutex<Vec<u8>>, Condvar)> =
+        Arc::new((Mutex::new(Vec::with_capacity(READ_BUF)), Condvar::new()));
     let done = Arc::new(AtomicBool::new(false));
     let spawn_at = Instant::now();
 
@@ -180,7 +189,10 @@ pub fn spawn(
                     Ok(n) => {
                         if !logged_first {
                             logged_first = true;
-                            log::debug!("pty first byte after {}ms", spawn_at.elapsed().as_millis());
+                            log::debug!(
+                                "pty first byte after {}ms",
+                                spawn_at.elapsed().as_millis()
+                            );
                         }
                         agent_detect.process(&buf[..n], |t| {
                             let _ = app_reader.emit(AGENT_EVENT, t.into_signal(id));
@@ -220,7 +232,7 @@ pub fn spawn(
         })
         .expect("spawn pty reader thread");
 
-    let on_data_flush = on_data.clone();
+    let channels_f = channels.clone();
     let pending_f = pending.clone();
     let done_f = done.clone();
     thread::Builder::new()
@@ -244,15 +256,21 @@ pub fn spawn(
                 if chunk.is_empty() {
                     continue;
                 }
-                if let Err(e) = on_data_flush.send(Response::new(chunk)) {
-                    log::debug!("pty flusher exiting, channel closed: {e}");
-                    break;
+                let on_data = channels_f
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .map(|channels| channels.on_data.clone());
+                if let Some(on_data) = on_data {
+                    if let Err(e) = on_data.send(Response::new(chunk)) {
+                        log::debug!("pty flusher send failed, waiting for reattach: {e}");
+                    }
                 }
             }
         })
         .expect("spawn pty flusher thread");
 
-    let on_data_exit = on_data;
+    let channels_e = channels;
     let pending_e = pending;
     let done_e = done;
     thread::Builder::new()
@@ -281,14 +299,28 @@ pub fn spawn(
             let (lock, cv) = &*pending_e;
             let tail = std::mem::take(&mut *lock.lock().unwrap());
             if !tail.is_empty() {
-                if let Err(e) = on_data_exit.send(Response::new(tail)) {
-                    log::debug!("pty final-data send failed (channel closed): {e}");
+                let on_data = channels_e
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .map(|channels| channels.on_data.clone());
+                if let Some(on_data) = on_data {
+                    if let Err(e) = on_data.send(Response::new(tail)) {
+                        log::debug!("pty final-data send failed (channel closed): {e}");
+                    }
                 }
             }
             done_e.store(true, Ordering::Release);
             cv.notify_all();
-            if let Err(e) = on_exit.send(code) {
-                log::debug!("pty exit send failed (channel closed): {e}");
+            let on_exit = channels_e
+                .lock()
+                .unwrap()
+                .as_ref()
+                .map(|channels| channels.on_exit.clone());
+            if let Some(on_exit) = on_exit {
+                if let Err(e) = on_exit.send(code) {
+                    log::debug!("pty exit send failed (channel closed): {e}");
+                }
             }
         })
         .expect("spawn pty waiter thread");
@@ -327,6 +359,7 @@ mod tests {
             killer: Mutex::new(killer),
             writer,
             master: Mutex::new(pair.master),
+            channels: Arc::new(Mutex::new(None)),
         });
 
         assert!(
@@ -375,6 +408,7 @@ mod tests {
             killer: Mutex::new(killer),
             writer,
             master: Mutex::new(pair.master),
+            channels: Arc::new(Mutex::new(None)),
         });
 
         drop_session(session);

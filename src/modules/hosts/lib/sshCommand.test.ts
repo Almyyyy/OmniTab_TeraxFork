@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSshCommand, sftpConfigForHost, sshTarget } from "./sshCommand";
+import {
+  buildSshCommand,
+  isSshPasswordPrompt,
+  sftpConfigForHost,
+  sshTarget,
+} from "./sshCommand";
 import type { HostProfile } from "@/modules/hosts/types";
 
 const base: HostProfile = {
@@ -39,5 +44,15 @@ describe("sshCommand", () => {
     expect(
       sftpConfigForHost({ ...base, authMode: "password" }, "secret").password,
     ).toBe("secret");
+  });
+
+  it("detects ssh password prompts at the end of the terminal buffer", () => {
+    expect(isSshPasswordPrompt("deploy@example.com's password: ")).toBe(true);
+    expect(isSshPasswordPrompt("Password:")).toBe(true);
+    expect(isSshPasswordPrompt("Enter passcode for deploy@example.com:")).toBe(
+      false,
+    );
+    expect(isSshPasswordPrompt("Last login: Thu Jun 4 15:00:00")).toBe(false);
+    expect(isSshPasswordPrompt("Password accepted\n$ ")).toBe(false);
   });
 });

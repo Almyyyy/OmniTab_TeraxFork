@@ -21,7 +21,7 @@
 
 ---
 
-OmniTab is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and React 19. A native PTY backend with a WebGL renderer, an agentic AI side-panel that runs against your own keys or fully local models, plus a code editor, file explorer, source control with a git graph, and a web preview pane built in. About 7-8 MB on disk. No telemetry. No account.
+OmniTab is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and React 19. A native PTY backend with a WebGL renderer, an agentic AI side-panel that runs against your own keys or fully local models, plus a code editor, file explorer, source control with a git graph, and browser tabs built in. About 7-8 MB on disk. No telemetry. No account.
 
 ## Screenshots
 
@@ -31,7 +31,7 @@ OmniTab is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and 
     <td align="center"><img src="docs/themes.png" alt="Themes and background image" /><br/><sub>Custom themes, presets, and background images</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/web-preview.png" alt="Web preview" /><br/><sub>Web preview of local dev servers</sub></td>
+    <td align="center"><img src="docs/web-preview.png" alt="Browser tab" /><br/><sub>Browser tab for local dev servers and external URLs</sub></td>
     <td align="center"><img src="docs/source-control.png" alt="Source control and git graph" /><br/><sub>Source control panel with git graph in history</sub></td>
   </tr>
   <tr>
@@ -70,10 +70,10 @@ OmniTab is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and 
 - Fuzzy search, keyboard navigation, inline rename, context actions
 - Attach files and selections directly to the AI side-panel
 
-### Web preview
+### Browser tabs
 
-- Auto-detects local dev servers and opens them in a preview tab
-- External URL preview via a native child webview
+- Auto-detects local dev servers and opens them in a browser tab
+- Native child webviews for http and https URLs, with address bar, history, reload, stop, zoom, and browsing data controls
 
 ### Themes and customization
 

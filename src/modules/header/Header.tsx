@@ -13,8 +13,7 @@ import {
   SHORTCUTS,
   type ShortcutId,
 } from "@/modules/shortcuts/shortcuts";
-import type { Tab } from "@/modules/tabs";
-import { TabBar } from "@/modules/tabs";
+import { TabBar, type Tab } from "@/modules/tabs";
 import { NotificationBell } from "@/modules/agents";
 import {
   GridViewIcon,
@@ -24,12 +23,7 @@ import {
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useRef, useState, type RefObject } from "react";
-import {
-  SearchInline,
-  type SearchInlineHandle,
-  type SearchTarget,
-} from "./SearchInline";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   tabs: Tab[];
@@ -37,16 +31,24 @@ type Props = {
   onSelect: (id: number) => void;
   onNew: () => void;
   onNewWindow: () => void;
-  onNewPrivate: () => void;
   onNewPreview: () => void;
-  onNewEditor: () => void;
-  onNewGitGraph: () => void;
-  onNewHosts: () => void;
   onClose: (id: number) => void;
   /** Promote a preview (transient) tab to persistent. */
   onPin: (id: number) => void;
   /** Set a terminal tab's custom label; empty string resets to default. */
   onRename: (id: number, title: string) => void;
+  onTabDragStart?: (id: number) => string | null;
+  onTabDragEnd?: (raw: string, detached: boolean) => void;
+  tabDragActive?: boolean;
+  externalTabDragHover?: {
+    targetId: number | null;
+    edge: "before" | "after";
+    preview: {
+      title: string;
+      x: number;
+      y: number;
+    };
+  } | null;
   onToggleSidebar: () => void;
   onSplit: (dir: "row" | "col") => void;
   /** Active tab is a terminal and below the per-tab pane cap. */
@@ -54,8 +56,6 @@ type Props = {
   onActivateAgent: (tabId: number, leafId: number) => void;
   onActivateLocalAgent: () => void;
   onOpenSettings: () => void;
-  searchTarget: SearchTarget;
-  searchRef: RefObject<SearchInlineHandle | null>;
 };
 
 const COMPACT_WIDTH = 720;
@@ -66,22 +66,20 @@ export function Header({
   onSelect,
   onNew,
   onNewWindow,
-  onNewPrivate,
   onNewPreview,
-  onNewEditor,
-  onNewGitGraph,
-  onNewHosts,
   onClose,
   onPin,
   onRename,
+  onTabDragStart,
+  onTabDragEnd,
+  tabDragActive,
+  externalTabDragHover,
   onToggleSidebar,
   onSplit,
   canSplit,
   onActivateAgent,
   onActivateLocalAgent,
   onOpenSettings,
-  searchTarget,
-  searchRef,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
@@ -124,11 +122,17 @@ export function Header({
   return (
     <div
       ref={rootRef}
-      data-tauri-drag-region
-      className={`flex h-10 shrink-0 items-center gap-2 border-b border-border/60 bg-card select-none ${
+      className={`relative flex h-10 shrink-0 items-center gap-2 border-b border-border/60 bg-card select-none ${
         IS_MAC ? "pr-2 pl-20" : "pr-0 pl-2"
       }`}
     >
+      {IS_MAC && !tabDragActive && (
+        <div
+          data-tauri-drag-region
+          className="absolute inset-y-0 left-0 w-20"
+        />
+      )}
+
       <div className="flex shrink-0 items-center gap-0.5">
         <Button
           onClick={onToggleSidebar}
@@ -182,10 +186,12 @@ export function Header({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {!IS_MAC && <NotificationBell
+        {!IS_MAC && (
+          <NotificationBell
             onActivate={onActivateAgent}
             onActivateLocal={onActivateLocalAgent}
-          />}
+          />
+        )}
       </div>
 
       {!IS_MAC && <span className="mx-1 h-5 w-px shrink-0 bg-border" />}
@@ -194,7 +200,7 @@ export function Header({
 
       <div
         className="flex min-w-0 flex-1 items-center gap-2"
-        data-tauri-drag-region
+        data-omnitab-tab-drop-zone
       >
         <TabBar
           tabs={tabs}
@@ -202,20 +208,29 @@ export function Header({
           onSelect={onSelect}
           onNew={onNew}
           onNewWindow={onNewWindow}
-          onNewPrivate={onNewPrivate}
           onNewPreview={onNewPreview}
-          onNewEditor={onNewEditor}
-          onNewGitGraph={onNewGitGraph}
-          onNewHosts={onNewHosts}
           onClose={onClose}
           onPin={onPin}
           onRename={onRename}
+          onTabDragStart={onTabDragStart}
+          onTabDragEnd={onTabDragEnd}
+          tabDragActive={tabDragActive}
+          externalDropTarget={
+            externalTabDragHover
+              ? {
+                  targetId: externalTabDragHover.targetId,
+                  edge: externalTabDragHover.edge,
+                }
+              : null
+          }
+          externalDragPreview={externalTabDragHover?.preview ?? null}
           compact={compact}
         />
-        <div data-tauri-drag-region className="h-full min-w-2 flex-1" />
+        <div
+          data-tauri-drag-region={!tabDragActive ? true : undefined}
+          className="h-full min-w-2 flex-1"
+        />
       </div>
-
-      <SearchInline ref={searchRef} target={searchTarget} compact={compact} />
 
       {IS_MAC && (
         <>

@@ -24,10 +24,9 @@ export type TerminalTab = {
   cwd?: string;
   paneTree: PaneNode;
   activeLeafId: number;
-  /** AI agent cannot read buffer / context of this terminal. */
-  private?: boolean;
   /** User-set label that overrides the cwd-derived name. Survives cd. */
   customTitle?: string;
+  hostId?: string;
 };
 
 export type EditorTab = {
@@ -141,8 +140,17 @@ function titleFromUrl(url: string): string {
     const u = new URL(url);
     return u.host || url;
   } catch {
-    return url || "preview";
+    return url || "browser";
   }
+}
+
+function clampInsertIndex(index: number, length: number): number {
+  return Math.max(0, Math.min(length, index));
+}
+
+function insertTabAt(tabs: Tab[], tab: Tab, index: number): Tab[] {
+  const i = clampInsertIndex(index, tabs.length);
+  return [...tabs.slice(0, i), tab, ...tabs.slice(i)];
 }
 
 export function useTabs(initial?: Partial<TerminalTab>) {
@@ -186,47 +194,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     return tabId;
   }, []);
 
-  const newAgentTab = useCallback(
-    (cwd: string | undefined, title: string) => {
-      const tabId = nextIdRef.current++;
-      const leafId = nextIdRef.current++;
-      setTabs((t) => [
-        ...t,
-        {
-          id: tabId,
-          kind: "terminal",
-          title,
-          cwd,
-          paneTree: { kind: "leaf", id: leafId, cwd },
-          activeLeafId: leafId,
-        },
-      ]);
-      setActiveId(tabId);
-      return { tabId, leafId };
-    },
-    [],
-  );
-
-  const newPrivateTab = useCallback((cwd?: string) => {
-    const tabId = nextIdRef.current++;
-    const leafId = nextIdRef.current++;
-    setTabs((t) => [
-      ...t,
-      {
-        id: tabId,
-        kind: "terminal",
-        title: "private",
-        cwd,
-        paneTree: { kind: "leaf", id: leafId, cwd },
-        activeLeafId: leafId,
-        private: true,
-      },
-    ]);
-    setActiveId(tabId);
-    return tabId;
-  }, []);
-
-  const newHostShellTab = useCallback((cwd: string | undefined, title: string) => {
+  const newAgentTab = useCallback((cwd: string | undefined, title: string) => {
     const tabId = nextIdRef.current++;
     const leafId = nextIdRef.current++;
     setTabs((t) => [
@@ -238,12 +206,52 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         cwd,
         paneTree: { kind: "leaf", id: leafId, cwd },
         activeLeafId: leafId,
-        customTitle: title,
       },
     ]);
     setActiveId(tabId);
     return { tabId, leafId };
   }, []);
+
+  const newHostShellTab = useCallback(
+    (cwd: string | undefined, title: string, hostId: string) => {
+      const existing = tabsRef.current.find(
+        (t) => t.kind === "terminal" && t.hostId === hostId,
+      );
+      if (existing && existing.kind === "terminal") {
+        setTabs((curr) =>
+          curr.map((t) =>
+            t.id === existing.id
+              ? { ...t, title, customTitle: title, hostId }
+              : t,
+          ),
+        );
+        setActiveId(existing.id);
+        return {
+          tabId: existing.id,
+          leafId: existing.activeLeafId,
+          reused: true,
+        };
+      }
+      const tabId = nextIdRef.current++;
+      const leafId = nextIdRef.current++;
+      setTabs((t) => [
+        ...t,
+        {
+          id: tabId,
+          kind: "terminal",
+          title,
+          cwd,
+          paneTree: { kind: "leaf", id: leafId, cwd },
+          activeLeafId: leafId,
+          customTitle: title,
+          hostId,
+        },
+      ]);
+      setActiveId(tabId);
+      return { tabId, leafId, reused: false };
+    },
+    [],
+  );
 
   /**
    * Opens a file in an editor tab.
@@ -503,9 +511,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       const existing = curr.find(
         (t) => t.kind === "git-history" && t.repoRoot === input.repoRoot,
       );
-      const title = input.branch
-        ? `History · ${input.branch}`
-        : "Git History";
+      const title = input.branch ? `History · ${input.branch}` : "Git History";
       if (existing) {
         const nextTabs = curr.map((t) =>
           t.id === existing.id ? { ...t, title } : t,
@@ -639,6 +645,103 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     for (const lid of toDispose) disposeSession(lid);
   }, []);
 
+  const removeTabWithoutDisposing = useCallback((id: number) => {
+    setTabs((curr) => {
+      if (curr.length <= 1) return curr;
+      const idx = curr.findIndex((t) => t.id === id);
+      if (idx === -1) return curr;
+      const next = curr.filter((t) => t.id !== id);
+      setActiveId((active) =>
+        id === active ? next[Math.max(0, idx - 1)].id : active,
+      );
+      return next;
+    });
+  }, []);
+
+  const moveTab = useCallback(
+    (id: number, targetId: number | null, edge: "before" | "after") => {
+      setTabs((curr) => {
+        const moving = curr.find((t) => t.id === id);
+        if (!moving || moving.id === targetId) return curr;
+        const without = curr.filter((t) => t.id !== id);
+        let index = without.length;
+        if (targetId !== null) {
+          const targetIndex = without.findIndex((t) => t.id === targetId);
+          if (targetIndex === -1) return curr;
+          index = edge === "before" ? targetIndex : targetIndex + 1;
+        }
+        return insertTabAt(without, moving, index);
+      });
+      setActiveId(id);
+    },
+    [],
+  );
+
+  const adoptTransferredTab = useCallback(
+    (
+      tab: Tab,
+      targetId: number | null = null,
+      edge: "before" | "after" = "after",
+      replaceExisting = false,
+    ) => {
+      const id = nextIdRef.current++;
+      let nextTab: Tab;
+      if (tab.kind === "terminal") {
+        const idMap = new Map<number, number>();
+        const remapPaneTree = (node: PaneNode): PaneNode => {
+          const nextNodeId = nextIdRef.current++;
+          idMap.set(node.id, nextNodeId);
+          if (node.kind === "leaf") {
+            return {
+              kind: "leaf",
+              id: nextNodeId,
+              cwd: node.cwd,
+              ptyId: node.ptyId,
+            };
+          }
+          return {
+            kind: "split",
+            id: nextNodeId,
+            dir: node.dir,
+            children: node.children.map(remapPaneTree),
+          };
+        };
+        const paneTree = remapPaneTree(tab.paneTree);
+        const ids = leafIds(paneTree);
+        nextTab = {
+          ...tab,
+          id,
+          paneTree,
+          activeLeafId: idMap.get(tab.activeLeafId) ?? ids[0] ?? id,
+        };
+      } else {
+        nextTab = { ...tab, id } as Tab;
+      }
+
+      let toDispose: number[] = [];
+      setTabs((curr) => {
+        if (replaceExisting) {
+          toDispose = curr.flatMap((t) =>
+            t.kind === "terminal" ? leafIds(t.paneTree) : [],
+          );
+          return [nextTab];
+        }
+        let index = curr.length;
+        if (targetId !== null) {
+          const targetIndex = curr.findIndex((t) => t.id === targetId);
+          if (targetIndex >= 0) {
+            index = edge === "before" ? targetIndex : targetIndex + 1;
+          }
+        }
+        return insertTabAt(curr, nextTab, index);
+      });
+      setActiveId(id);
+      for (const leafId of toDispose) disposeSession(leafId);
+      return id;
+    },
+    [],
+  );
+
   const updateTab = useCallback((id: number, patch: TabPatch) => {
     setTabs((t) =>
       t.map((x) => {
@@ -649,7 +752,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             ...(patch.title !== undefined && { title: patch.title }),
             ...(patch.cwd !== undefined && { cwd: patch.cwd }),
             ...(patch.customTitle !== undefined && {
-              customTitle: patch.customTitle === "" ? undefined : patch.customTitle,
+              customTitle:
+                patch.customTitle === "" ? undefined : patch.customTitle,
             }),
           };
         }
@@ -824,8 +928,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       }
       const remaining = leafIds(newTree);
       const sib = siblingLeafOf(t.paneTree, target);
-      const newActive =
-        sib && remaining.includes(sib) ? sib : remaining[0];
+      const newActive = sib && remaining.includes(sib) ? sib : remaining[0];
       removedLeaf = target;
       return curr.map((x) =>
         x.id === tabId
@@ -866,7 +969,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setActiveId,
     newTab,
     newAgentTab,
-    newPrivateTab,
     newHostShellTab,
     openFileTab,
     pinTab,
@@ -880,6 +982,9 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setAiDiffStatus,
     closeAiDiffTab,
     closeTab,
+    removeTabWithoutDisposing,
+    moveTab,
+    adoptTransferredTab,
     updateTab,
     selectByIndex,
     setLeafCwd,

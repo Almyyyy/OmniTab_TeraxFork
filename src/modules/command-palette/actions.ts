@@ -1,4 +1,3 @@
-import type { SearchTarget } from "@/modules/header";
 import type { ShortcutId } from "@/modules/shortcuts";
 import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
@@ -9,7 +8,6 @@ import {
   Cancel01Icon,
   FileEditIcon,
   Globe02Icon,
-  IncognitoIcon,
   KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
@@ -48,12 +46,10 @@ export const COMMAND_PALETTE_ACTION_GROUPS: readonly CommandPaletteActionGroup[]
 export type CommandPaletteActionContext = {
   tabs: Tab[];
   activeId: number;
-  searchTarget: SearchTarget;
   explorerRoot: string | null;
   home: string | null;
   openNewWindow: () => void;
   openNewTab: () => void;
-  openNewPrivate: () => void;
   openNewEditor: () => void;
   openNewPreview: () => void;
   closeActiveTabOrPane: () => void;
@@ -63,7 +59,6 @@ export type CommandPaletteActionContext = {
   splitPaneDown: () => void;
   focusNextPane: () => void;
   focusPreviousPane: () => void;
-  focusSearch: () => void;
   focusExplorerSearch: () => void;
   toggleSidebar: () => void;
   toggleAi: () => void;
@@ -76,8 +71,7 @@ export function createCommandPaletteActions(
   ctx: CommandPaletteActionContext,
 ): CommandPaletteAction[] {
   const activeTab = ctx.tabs.find((tab) => tab.id === ctx.activeId);
-  const activeTerminalTab =
-    activeTab?.kind === "terminal" ? activeTab : null;
+  const activeTerminalTab = activeTab?.kind === "terminal" ? activeTab : null;
   const activePaneCount = activeTerminalTab
     ? leafIds(activeTerminalTab.paneTree).length
     : 0;
@@ -93,9 +87,6 @@ export function createCommandPaletteActions(
     : activePaneCount < 2
       ? "Only one pane"
       : undefined;
-  const closeDisabledReason =
-    onlyOneTab && activePaneCount < 2 ? "Last tab" : undefined;
-
   return [
     {
       id: "settings.open",
@@ -136,15 +127,6 @@ export function createCommandPaletteActions(
       run: ctx.openNewTab,
     },
     {
-      id: "tab.newPrivate",
-      label: "New private terminal",
-      group: "Tabs",
-      keywords: ["privacy", "private", "incognito", "hidden from ai"],
-      icon: IncognitoIcon,
-      shortcutId: "tab.newPrivate",
-      run: ctx.openNewPrivate,
-    },
-    {
       id: "tab.newEditor",
       label: "New editor tab",
       group: "Tabs",
@@ -157,9 +139,9 @@ export function createCommandPaletteActions(
     },
     {
       id: "tab.newPreview",
-      label: "New preview tab",
+      label: "New browser tab",
       group: "Tabs",
-      keywords: ["browser", "web", "localhost"],
+      keywords: ["browser", "web", "url", "localhost"],
       icon: Globe02Icon,
       shortcutId: "tab.newPreview",
       run: ctx.openNewPreview,
@@ -171,7 +153,6 @@ export function createCommandPaletteActions(
       keywords: ["close", "remove", "pane"],
       icon: Cancel01Icon,
       shortcutId: "tab.close",
-      disabledReason: closeDisabledReason,
       run: ctx.closeActiveTabOrPane,
     },
     {
@@ -252,17 +233,6 @@ export function createCommandPaletteActions(
       shortcutId: "explorer.search",
       disabledReason: ctx.explorerRoot ? undefined : "No workspace root",
       run: ctx.focusExplorerSearch,
-      deferRun: true,
-    },
-    {
-      id: "search.focus",
-      label: "Focus search",
-      group: "Search",
-      keywords: ["find", "terminal", "editor"],
-      icon: Search01Icon,
-      shortcutId: "search.focus",
-      disabledReason: ctx.searchTarget ? undefined : "No searchable view",
-      run: ctx.focusSearch,
       deferRun: true,
     },
     {

@@ -64,3 +64,45 @@ export async function openPty(
     },
   };
 }
+
+export async function attachPty(
+  id: number,
+  handlers: PtyHandlers,
+): Promise<PtySession> {
+  const onData = new Channel<ArrayBuffer>();
+  const onExit = new Channel<number>();
+
+  let released = false;
+  const noop = () => {};
+  const releaseHandlers = () => {
+    if (released) return;
+    released = true;
+    onData.onmessage = noop;
+    onExit.onmessage = noop;
+  };
+
+  onData.onmessage = (buf) => handlers.onData(new Uint8Array(buf));
+  onExit.onmessage = (code) => {
+    handlers.onExit?.(code);
+    releaseHandlers();
+  };
+
+  await invoke("pty_attach", { id, onData, onExit });
+
+  let closed = false;
+
+  return {
+    id,
+    write: (data) => invoke("pty_write", { id, data }),
+    resize: (c, r) => invoke("pty_resize", { id, cols: c, rows: r }),
+    close: async () => {
+      if (closed) return;
+      closed = true;
+      try {
+        await invoke("pty_close", { id });
+      } finally {
+        releaseHandlers();
+      }
+    },
+  };
+}

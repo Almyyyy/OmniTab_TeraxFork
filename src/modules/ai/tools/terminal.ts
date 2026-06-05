@@ -23,7 +23,9 @@ export function buildTerminalTools(ctx: ToolContext) {
         // Reject control bytes — the user inserts via click, but the rendered
         // command must reflect exactly what will land at the prompt.
         if (/[\n\r\x00\x1b\x07]/.test(command)) {
-          return { error: "command must be a single line without control bytes" };
+          return {
+            error: "command must be a single line without control bytes",
+          };
         }
         return { command, explanation };
       },
@@ -31,7 +33,7 @@ export function buildTerminalTools(ctx: ToolContext) {
 
     get_terminal_output: tool({
       description:
-        "Return the tail of the active terminal's scrollback. Use this when the user references 'this error', 'the last command', or you need to interpret recent terminal output. Default is 80 lines; raise it only when you genuinely need more. Returns an empty string if there is no active terminal; refuses if the terminal is in Privacy mode.",
+        "Return the tail of the active terminal's scrollback. Use this when the user references 'this error', 'the last command', or you need to interpret recent terminal output. Default is 80 lines; raise it only when you genuinely need more. Returns an empty string if there is no active terminal.",
       inputSchema: z.object({
         lines: z
           .number()
@@ -42,27 +44,24 @@ export function buildTerminalTools(ctx: ToolContext) {
           .describe("Number of trailing lines to return. Default 80."),
       }),
       execute: async ({ lines }) => {
-        if (ctx.isActiveTerminalPrivate()) {
-          return {
-            error:
-              "active terminal is in Privacy mode; its buffer is withheld. Ask the user to switch to a regular tab if they want you to see it.",
-          };
-        }
         const buffer = ctx.getTerminalContext();
         if (!buffer) return { output: "", note: "no active terminal" };
         const n = lines ?? 80;
         const parts = buffer.split("\n");
-        const sliced = parts.length <= n ? buffer : parts.slice(parts.length - n).join("\n");
+        const sliced =
+          parts.length <= n ? buffer : parts.slice(parts.length - n).join("\n");
         const MAX = 24_000;
         const capped =
-          sliced.length > MAX ? `…[truncated]…\n${sliced.slice(sliced.length - MAX)}` : sliced;
+          sliced.length > MAX
+            ? `…[truncated]…\n${sliced.slice(sliced.length - MAX)}`
+            : sliced;
         return { output: capped, lines_returned: Math.min(parts.length, n) };
       },
     }),
 
     open_preview: tool({
       description:
-        "Open a preview tab (in-app iframe) at the given URL — restricted to localhost/loopback addresses for the local dev server. Use this after starting a dev server (e.g. `pnpm dev`, `npm run dev`) to surface the rendered page next to the terminal. To preview external sites, the user should paste the URL into the preview address bar themselves.",
+        "Open a browser tab at the given URL. This tool is restricted to localhost/loopback addresses for local dev servers. Use this after starting a dev server (e.g. `pnpm dev`) to surface the rendered page next to the terminal. To browse external sites, the user should paste the URL into the browser address bar themselves.",
       inputSchema: z.object({
         url: z
           .url()
@@ -91,7 +90,7 @@ export function buildTerminalTools(ctx: ToolContext) {
         if (!isLocal) {
           return {
             error:
-              "open_preview is restricted to localhost URLs. Ask the user to paste the external URL into the preview address bar instead.",
+              "open_preview is restricted to localhost URLs. Ask the user to paste the external URL into the browser address bar instead.",
             url,
           };
         }
@@ -100,6 +99,5 @@ export function buildTerminalTools(ctx: ToolContext) {
         return { url, ok: true };
       },
     }),
-
   } as const;
 }

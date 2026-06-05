@@ -1,9 +1,14 @@
 import { Alert02Icon, Globe02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
+import { Webview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -11,6 +16,17 @@ import {
   PreviewAddressBar,
   type PreviewAddressBarHandle,
 } from "./PreviewAddressBar";
+import {
+  browserClearData,
+  browserGoBack,
+  browserGoForward,
+  browserNavigate,
+  browserReload,
+  browserSetZoom,
+  browserState,
+  browserStop,
+  type BrowserPageLoadPayload,
+} from "./browserNative";
 
 export type PreviewPaneHandle = {
   reload: () => void;
@@ -19,47 +35,279 @@ export type PreviewPaneHandle = {
 };
 
 type Props = {
+  id: number;
   url: string;
   visible: boolean;
   onUrlChange: (url: string) => void;
+  onTitleChange: (title: string) => void;
 };
 
-// Tear the iframe down after this much invisibility — a background dev
-// server page can hold hundreds of MB inside the WebView.
-const SUSPEND_AFTER_MS = 30_000;
+type HistoryState = {
+  entries: string[];
+  index: number;
+};
+
+const PAGE_LOAD_EVENT = "omnitab:browser-page-load";
+const MIN_WEBVIEW_SIZE = 8;
 
 export const PreviewPane = forwardRef<PreviewPaneHandle, Props>(
-  function PreviewPane({ url, visible, onUrlChange }, ref) {
-    // `nonce` is part of the iframe `key`. Bumping it remounts the iframe,
-    // which is the only reliable cross-origin reload (calling
-    // contentWindow.location.reload() throws on cross-origin frames).
-    const [nonce, setNonce] = useState(0);
-    const [loaded, setLoaded] = useState(visible);
+  function PreviewPane({ id, url, visible, onUrlChange, onTitleChange }, ref) {
     const addressRef = useRef<PreviewAddressBarHandle>(null);
+    const viewportRef = useRef<HTMLDivElement>(null);
+    const webviewRef = useRef<Webview | null>(null);
+    const webviewUrlRef = useRef("");
+    const urlRef = useRef(url);
+    const window = useMemo(() => getCurrentWindow(), []);
+    const webviewLabel = useMemo(
+      () => `browser-${sanitizeLabel(window.label)}-${id}`,
+      [id, window.label],
+    );
+
+    const [loading, setLoading] = useState(false);
+    const [ready, setReady] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [zoom, setZoom] = useState(1);
+    const [history, setHistory] = useState<HistoryState>({
+      entries: url ? [url] : [],
+      index: url ? 0 : -1,
+    });
 
     useEffect(() => {
-      if (visible) {
-        setLoaded(true);
+      urlRef.current = url;
+    }, [url]);
+
+    const recordNavigation = useCallback((nextUrl: string) => {
+      if (!nextUrl) return;
+      setHistory((prev) => {
+        if (prev.entries[prev.index] === nextUrl) return prev;
+
+        const existing = prev.entries.lastIndexOf(nextUrl);
+        if (existing !== -1) return { entries: prev.entries, index: existing };
+
+        const base =
+          prev.index >= 0 ? prev.entries.slice(0, prev.index + 1) : [];
+        return { entries: [...base, nextUrl], index: base.length };
+      });
+    }, []);
+
+    const closeWebview = useCallback(() => {
+      const webview = webviewRef.current;
+      webviewRef.current = null;
+      webviewUrlRef.current = "";
+      setReady(false);
+      setLoading(false);
+      if (webview) void webview.close().catch(console.warn);
+    }, []);
+
+    const updateBounds = useCallback(async () => {
+      const webview = webviewRef.current;
+      const viewport = viewportRef.current;
+      if (!webview || !viewport) return;
+
+      const rect = viewport.getBoundingClientRect();
+      if (
+        !visible ||
+        !urlRef.current ||
+        rect.width < MIN_WEBVIEW_SIZE ||
+        rect.height < MIN_WEBVIEW_SIZE
+      ) {
+        await webview.hide().catch(console.warn);
         return;
       }
-      const t = setTimeout(() => setLoaded(false), SUSPEND_AFTER_MS);
-      return () => clearTimeout(t);
+
+      const x = Math.max(0, Math.round(rect.left));
+      const y = Math.max(0, Math.round(rect.top));
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      await webview.setPosition(new LogicalPosition(x, y));
+      await webview.setSize(new LogicalSize(width, height));
+      await webview.show();
     }, [visible]);
+
+    const syncBrowserState = useCallback(async () => {
+      if (!webviewRef.current) return;
+      try {
+        const state = await browserState(webviewLabel);
+        if (state.url && state.url !== webviewUrlRef.current) {
+          webviewUrlRef.current = state.url;
+          onUrlChange(state.url);
+          recordNavigation(state.url);
+        }
+        const title = state.title.trim();
+        if (title) onTitleChange(title);
+      } catch {
+        // The webview may be in-flight or gone during tab close.
+      }
+    }, [onTitleChange, onUrlChange, recordNavigation, webviewLabel]);
+
+    const createWebview = useCallback(
+      (targetUrl: string) => {
+        if (webviewRef.current) return;
+        if (!isSupportedWebUrl(targetUrl)) {
+          setError("Browser tabs support http and https URLs.");
+          return;
+        }
+
+        const viewport = viewportRef.current;
+        const rect = viewport?.getBoundingClientRect();
+        const x = Math.max(0, Math.round(rect?.left ?? 0));
+        const y = Math.max(0, Math.round(rect?.top ?? 0));
+        const width = Math.max(1, Math.round(rect?.width ?? 800));
+        const height = Math.max(1, Math.round(rect?.height ?? 600));
+
+        setError(null);
+        setLoading(true);
+        webviewUrlRef.current = targetUrl;
+        recordNavigation(targetUrl);
+
+        const webview = new Webview(window, webviewLabel, {
+          url: targetUrl,
+          x,
+          y,
+          width,
+          height,
+          focus: false,
+          dragDropEnabled: true,
+          zoomHotkeysEnabled: true,
+          devtools: import.meta.env.DEV,
+          backgroundColor: "#ffffff",
+          allowLinkPreview: true,
+          generalAutofillEnabled: true,
+        });
+
+        webviewRef.current = webview;
+        void webview.once("tauri://created", () => {
+          setReady(true);
+          void browserSetZoom(webviewLabel, zoom).catch(console.warn);
+          void updateBounds();
+        });
+        void webview.once<string>("tauri://error", (event) => {
+          setError(String(event.payload || "Failed to create browser webview."));
+          closeWebview();
+        });
+      },
+      [
+        closeWebview,
+        recordNavigation,
+        updateBounds,
+        webviewLabel,
+        window,
+        zoom,
+      ],
+    );
+
+    useEffect(() => {
+      const targetUrl = url.trim();
+      if (!targetUrl) {
+        closeWebview();
+        setHistory({ entries: [], index: -1 });
+        setError(null);
+        return;
+      }
+
+      if (!webviewRef.current) {
+        createWebview(targetUrl);
+        return;
+      }
+
+      if (targetUrl === webviewUrlRef.current) return;
+      if (!isSupportedWebUrl(targetUrl)) {
+        setError("Browser tabs support http and https URLs.");
+        return;
+      }
+
+      setError(null);
+      setLoading(true);
+      webviewUrlRef.current = targetUrl;
+      recordNavigation(targetUrl);
+      void browserNavigate(webviewLabel, targetUrl).catch((e) => {
+        setLoading(false);
+        setError(String(e));
+      });
+    }, [closeWebview, createWebview, recordNavigation, url, webviewLabel]);
+
+    useEffect(() => {
+      let unlisten: (() => void) | null = null;
+      void window
+        .listen<BrowserPageLoadPayload>(PAGE_LOAD_EVENT, (event) => {
+          const payload = event.payload;
+          if (payload.label !== webviewLabel) return;
+
+          setLoading(payload.event === "started");
+          if (payload.url && payload.url !== webviewUrlRef.current) {
+            webviewUrlRef.current = payload.url;
+            onUrlChange(payload.url);
+            recordNavigation(payload.url);
+          }
+          if (payload.event === "finished") void syncBrowserState();
+        })
+        .then((fn) => {
+          unlisten = fn;
+        });
+      return () => unlisten?.();
+    }, [
+      onUrlChange,
+      recordNavigation,
+      syncBrowserState,
+      webviewLabel,
+      window,
+    ]);
+
+    useEffect(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const resize = () => void updateBounds();
+      const observer = new ResizeObserver(resize);
+      observer.observe(viewport);
+      globalThis.addEventListener("resize", resize);
+      const raf = requestAnimationFrame(resize);
+
+      return () => {
+        observer.disconnect();
+        globalThis.removeEventListener("resize", resize);
+        cancelAnimationFrame(raf);
+      };
+    }, [updateBounds]);
+
+    useEffect(() => {
+      if (!webviewRef.current) return;
+      if (visible && url) void updateBounds();
+      else void webviewRef.current.hide().catch(console.warn);
+    }, [updateBounds, url, visible]);
+
+    useEffect(() => {
+      if (!visible || !ready) return;
+      void syncBrowserState();
+      const interval = globalThis.setInterval(
+        () => void syncBrowserState(),
+        1200,
+      );
+      return () => globalThis.clearInterval(interval);
+    }, [ready, syncBrowserState, visible]);
+
+    useEffect(() => closeWebview, [closeWebview]);
 
     useImperativeHandle(
       ref,
       () => ({
         reload: () => {
-          setLoaded(true);
-          setNonce((n) => n + 1);
+          if (!webviewRef.current) return;
+          setLoading(true);
+          void browserReload(webviewLabel).catch((e) => {
+            setLoading(false);
+            setError(String(e));
+          });
         },
         focusAddressBar: () => addressRef.current?.focus(),
-        getUrl: () => url,
+        getUrl: () => webviewUrlRef.current || url,
       }),
-      [url],
+      [url, webviewLabel],
     );
 
-    const showXfoHint = url ? !isLocalUrl(url) : false;
+    const canGoBack = history.index > 0;
+    const canGoForward =
+      history.index >= 0 && history.index < history.entries.length - 1;
 
     return (
       <div
@@ -72,85 +320,102 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, Props>(
         <PreviewAddressBar
           ref={addressRef}
           url={url}
+          loading={loading}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          zoom={zoom}
           onSubmit={onUrlChange}
-          onReload={() => setNonce((n) => n + 1)}
+          onReload={() => {
+            if (!webviewRef.current) return;
+            setLoading(true);
+            void browserReload(webviewLabel).catch((e) => {
+              setLoading(false);
+              setError(String(e));
+            });
+          }}
+          onStop={() => {
+            setLoading(false);
+            void browserStop(webviewLabel).catch(console.warn);
+          }}
+          onBack={() => {
+            if (!canGoBack) return;
+            setHistory((prev) => ({ ...prev, index: Math.max(0, prev.index - 1) }));
+            setLoading(true);
+            void browserGoBack(webviewLabel).catch((e) => {
+              setLoading(false);
+              setError(String(e));
+            });
+          }}
+          onForward={() => {
+            if (!canGoForward) return;
+            setHistory((prev) => ({
+              ...prev,
+              index: Math.min(prev.entries.length - 1, prev.index + 1),
+            }));
+            setLoading(true);
+            void browserGoForward(webviewLabel).catch((e) => {
+              setLoading(false);
+              setError(String(e));
+            });
+          }}
+          onZoomIn={() => {
+            setZoom((z) => {
+              const next = clampZoom(z + 0.1);
+              void browserSetZoom(webviewLabel, next).catch(console.warn);
+              return next;
+            });
+          }}
+          onZoomOut={() => {
+            setZoom((z) => {
+              const next = clampZoom(z - 0.1);
+              void browserSetZoom(webviewLabel, next).catch(console.warn);
+              return next;
+            });
+          }}
+          onZoomReset={() => {
+            setZoom(1);
+            void browserSetZoom(webviewLabel, 1).catch(console.warn);
+          }}
+          onClearData={() => {
+            void browserClearData(webviewLabel)
+              .then(() => browserReload(webviewLabel))
+              .catch((e) => setError(String(e)));
+          }}
         />
-        {showXfoHint ? (
-          <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-border/60 bg-amber-500/8 px-3 text-[11px] text-amber-600 dark:text-amber-400">
-            <HugeiconsIcon
-              icon={Alert02Icon}
-              size={12}
-              strokeWidth={1.75}
-              className="shrink-0"
-            />
-            <span className="truncate">
-              Many public sites refuse to embed (X-Frame-Options). If the page
-              is blank, open it externally.
-            </span>
-          </div>
-        ) : null}
+        {error ? <ErrorBanner message={error} /> : null}
         <div
+          ref={viewportRef}
           className={
             url
               ? "relative min-h-0 flex-1 bg-white"
               : "relative min-h-0 flex-1 bg-background"
           }
         >
-          {url ? (
-            loaded ? (
-              <iframe
-                key={`${url}#${nonce}`}
-                src={url}
-                title="Preview"
-                className="h-full w-full border-0"
-                // sandbox grants the bare minimum for a dev preview: scripts,
-                // same-origin (cookies/storage for the previewed app), forms,
-                // popups for "open in new tab". Critically OMITS
-                // `allow-top-navigation*` — without it the iframe cannot
-                // navigate the parent Tauri webview to an attacker origin,
-                // which would otherwise expose `window.__TAURI__` IPC.
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
-                referrerPolicy="no-referrer"
-                allow="clipboard-read; clipboard-write; fullscreen"
-              />
-            ) : (
-              <SuspendedState
-                onReload={() => {
-                  setLoaded(true);
-                  setNonce((n) => n + 1);
-                }}
-              />
-            )
-          ) : (
-            <EmptyState />
-          )}
+          {!url ? <EmptyState /> : !ready ? <LoadingState /> : null}
         </div>
       </div>
     );
   },
 );
 
-function SuspendedState({ onReload }: { onReload: () => void }) {
+function ErrorBanner({ message }: { message: string }) {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center">
-      <div className="flex size-10 items-center justify-center rounded-2xl border border-border/60 bg-card text-muted-foreground">
-        <HugeiconsIcon icon={Globe02Icon} size={18} strokeWidth={1.5} />
-      </div>
-      <div className="space-y-1">
-        <p className="text-[12.5px] font-medium text-foreground">
-          Preview suspended
-        </p>
-        <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
-          Released to free memory after sitting in the background.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onReload}
-        className="rounded-md border border-border/60 bg-card px-3 py-1 text-[11px] hover:bg-accent/50"
-      >
-        Reload
-      </button>
+    <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-border/60 bg-destructive/8 px-3 text-[11px] text-destructive">
+      <HugeiconsIcon
+        icon={Alert02Icon}
+        size={12}
+        strokeWidth={1.75}
+        className="shrink-0"
+      />
+      <span className="truncate">{message}</span>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+      Loading browser...
     </div>
   );
 }
@@ -162,35 +427,28 @@ function EmptyState() {
         <HugeiconsIcon icon={Globe02Icon} size={20} strokeWidth={1.5} />
       </div>
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">
-          Nothing to preview yet
-        </p>
+        <p className="text-sm font-medium text-foreground">New browser tab</p>
         <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-          Type a URL above, or open the{" "}
-          <span className="rounded bg-muted px-1 py-0.5 font-mono text-[10.5px]">
-            Ports
-          </span>{" "}
-          dropdown to jump straight to your running dev server. Public sites
-          often block embedding — open them in your browser via the link icon
-          if you see a blank page.
+          Search, enter a URL, or open a local dev server from the Ports menu.
         </p>
       </div>
     </div>
   );
 }
 
-function isLocalUrl(url: string): boolean {
+function sanitizeLabel(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_/:.-]/g, "-");
+}
+
+function isSupportedWebUrl(value: string): boolean {
   try {
-    const u = new URL(url);
-    const h = u.hostname;
-    return (
-      h === "localhost" ||
-      h === "127.0.0.1" ||
-      h === "0.0.0.0" ||
-      h === "[::1]" ||
-      h.endsWith(".localhost")
-    );
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
+}
+
+function clampZoom(value: number): number {
+  return Math.min(3, Math.max(0.25, Math.round(value * 10) / 10));
 }

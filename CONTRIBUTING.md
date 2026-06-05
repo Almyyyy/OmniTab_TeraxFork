@@ -195,7 +195,7 @@ src/
     ai/                     Agents, sessions, tools, providers, mini-window
     git-history/            Git graph and history pane
     source-control/         Source control panel
-    preview/                Image / Markdown / web preview
+    preview/                Image / Markdown / browser tabs
     settings/               Settings UI and preferences store
     shortcuts/              Keymap
   app/                      Top-level App.tsx

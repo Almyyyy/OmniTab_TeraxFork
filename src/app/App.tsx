@@ -50,14 +50,15 @@ import {
 import {
   buildSshCommand,
   HostsPanel,
-  SftpStack,
+  isSshPasswordPrompt,
   useHostsStore,
   type HostProfile,
 } from "@/modules/hosts";
+import { getHostPassword } from "@/modules/hosts/lib/passwords";
 import { getLaunchDir } from "@/lib/launchDir";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
-import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
+import { type FileExplorerHandle } from "@/modules/explorer";
 import {
   CommandPalette,
   createCommandPaletteActions,
@@ -68,16 +69,15 @@ import {
   watchAdd,
   watchRemove,
 } from "@/modules/explorer/lib/watch";
-import {
-  Header,
-  type SearchInlineHandle,
-  type SearchTarget,
-} from "@/modules/header";
+import { Header } from "@/modules/header";
 import { MarkdownStack } from "@/modules/markdown";
 import { PreviewStack, type PreviewPaneHandle } from "@/modules/preview";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { onKeysChanged, setThemeId as persistThemeId } from "@/modules/settings/store";
+import {
+  onKeysChanged,
+  setThemeId as persistThemeId,
+} from "@/modules/settings/store";
 import {
   ShortcutsDialog,
   useGlobalShortcuts,
@@ -85,16 +85,36 @@ import {
   type ShortcutId,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
-import {
-  SourceControlPanel,
-  useSourceControl,
-} from "@/modules/source-control";
+import { SourceControlPanel, useSourceControl } from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
-import { MAX_PANES_PER_TAB, useTabs, useWindowTitle, useWorkspaceCwd } from "@/modules/tabs";
+import {
+  MAX_PANES_PER_TAB,
+  TAB_DRAG_ENDED_EVENT,
+  TAB_DRAG_HOVER_EVENT,
+  TAB_DRAG_STARTED_EVENT,
+  TAB_TRANSFER_ACCEPTED_EVENT,
+  TAB_TRANSFER_EVENT,
+  TAB_TRANSFER_READY_EVENT,
+  parseTabTransferPayload,
+  useTabs,
+  useWindowTitle,
+  useWorkspaceCwd,
+  type Tab,
+  type TabDragHoverSignal,
+  type TabDragSignal,
+  type TabDropEdge,
+  type TabStripMetrics,
+  type TabTransferAccepted,
+  type TabTransferPayload,
+  type TabTransferReady,
+} from "@/modules/tabs";
+import { labelFor } from "@/modules/tabs/lib/tabLabel";
 import {
   clearFocusedTerminal,
+  detachSessionForTransfer,
   disposeSession,
   findLeafCwd,
+  getSessionPtyId,
   hasLeaf,
   leafHasForegroundProcess,
   leafIds,
@@ -103,10 +123,14 @@ import {
   whenSessionReady,
   writeToSession,
   type TerminalPaneHandle,
+  type PaneNode,
   useTerminalFileDrop,
 } from "@/modules/terminal";
 import { ThemeProvider } from "@/modules/theme";
-import { listCustomThemes, saveCustomTheme } from "@/modules/theme/customThemes";
+import {
+  listCustomThemes,
+  saveCustomTheme,
+} from "@/modules/theme/customThemes";
 import {
   isThemeFilePath,
   onThemeEdit,
@@ -125,14 +149,35 @@ import {
 } from "@/modules/workspace";
 import { openMainWindow } from "@/modules/windows";
 import { invoke } from "@tauri-apps/api/core";
+import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { SearchAddon } from "@xterm/addon-search";
+import { cursorPosition } from "@tauri-apps/api/window";
+import {
+  getAllWebviewWindows,
+  getCurrentWebviewWindow,
+} from "@tauri-apps/api/webviewWindow";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
+
+async function waitForSshPasswordPrompt(
+  readBuf: () => string | null,
+  sendPassword: () => boolean,
+  timeoutMs = 30000,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const buf = readBuf();
+    if (buf === null) return;
+    if (isSshPasswordPrompt(buf)) {
+      sendPassword();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 120));
+  }
+}
 
 async function waitForClaudeTuiReady(
   readBuf: () => string | null,
@@ -184,17 +229,112 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
   try {
     const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-    if (
-      stored === "explorer" ||
-      stored === "source-control" ||
-      stored === "hosts"
-    ) {
+    if (stored === "explorer" || stored === "source-control") {
       return stored;
     }
   } catch {
     // ignore
   }
   return "explorer";
+}
+
+function randomTransferId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+type PhysicalPoint = { x: number; y: number };
+
+type ResolvedTabDropTarget = {
+  windowLabel: string;
+  targetId: number | null;
+  edge: TabDropEdge;
+};
+
+type ExternalTabDragHover = {
+  transferId: string;
+  targetId: number | null;
+  edge: TabDropEdge;
+  preview: {
+    title: string;
+    x: number;
+    y: number;
+  };
+};
+
+const TAB_STRIP_SELECTOR = "[data-omnitab-tab-strip]";
+
+function rectContainsPoint(
+  rect: { x: number; y: number; width: number; height: number },
+  point: PhysicalPoint,
+): boolean {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+function resolveTabDropTarget(
+  point: PhysicalPoint,
+  metrics: TabStripMetrics[],
+  liveLabels: Set<string>,
+): ResolvedTabDropTarget | null {
+  for (const metric of metrics) {
+    if (!liveLabels.has(metric.windowLabel)) continue;
+    if (!rectContainsPoint(metric.strip, point)) continue;
+    const tabs = metric.tabs
+      .filter(
+        (tab) =>
+          tab.width > 0 &&
+          tab.height > 0 &&
+          tab.x + tab.width >= metric.strip.x &&
+          tab.x <= metric.strip.x + metric.strip.width,
+      )
+      .sort((a, b) => a.x - b.x);
+    if (tabs.length === 0) {
+      return {
+        windowLabel: metric.windowLabel,
+        targetId: null,
+        edge: "after",
+      };
+    }
+    for (const tab of tabs) {
+      if (point.x < tab.x + tab.width / 2) {
+        return {
+          windowLabel: metric.windowLabel,
+          targetId: tab.id,
+          edge: "before",
+        };
+      }
+    }
+    return {
+      windowLabel: metric.windowLabel,
+      targetId: null,
+      edge: "after",
+    };
+  }
+  return null;
+}
+
+function tabPrimaryCwd(tab: Tab): string | null {
+  if (tab.kind !== "terminal") return null;
+  return findLeafCwd(tab.paneTree, tab.activeLeafId) ?? tab.cwd ?? null;
+}
+
+function tabWithPtyIds(tab: Tab): Tab {
+  if (tab.kind !== "terminal") return tab;
+  const withPtyIds = (node: PaneNode): PaneNode => {
+    if (node.kind === "leaf") {
+      const ptyId = getSessionPtyId(node.id);
+      return ptyId === null ? node : { ...node, ptyId };
+    }
+    return { ...node, children: node.children.map(withPtyIds) };
+  };
+  return { ...tab, paneTree: withPtyIds(tab.paneTree) };
 }
 
 export default function App() {
@@ -204,7 +344,6 @@ export default function App() {
     setActiveId,
     newTab,
     newAgentTab,
-    newPrivateTab,
     newHostShellTab,
     openFileTab,
     pinTab,
@@ -215,8 +354,10 @@ export default function App() {
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
-    openHostSftpTab,
     closeTab,
+    removeTabWithoutDisposing,
+    moveTab,
+    adoptTransferredTab,
     updateTab,
     selectByIndex,
     setLeafCwd,
@@ -232,6 +373,28 @@ export default function App() {
   // (e.g. cdInNewTab) read the latest pane state instead of a stale closure.
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  const currentWindowRef = useRef(getCurrentWebviewWindow());
+  const currentWindowLabel = currentWindowRef.current.label;
+  const pendingTransfersRef = useRef(
+    new Map<
+      string,
+      {
+        tabId: number;
+        payload: TabTransferPayload;
+      }
+    >(),
+  );
+  const pendingNewWindowTransfersRef = useRef(
+    new Map<string, TabTransferPayload>(),
+  );
+  const acceptedTransfersRef = useRef(new Set<string>());
+  const finishingTransfersRef = useRef(new Set<string>());
+  const [tabDragActive, setTabDragActive] = useState(false);
+  const tabDragActiveRef = useRef(false);
+  const activeDragTransferIdRef = useRef<string | null>(null);
+  const [externalTabDragHover, setExternalTabDragHover] =
+    useState<ExternalTabDragHover | null>(null);
+  const externalTabDragHoverRef = useRef<ExternalTabDragHover | null>(null);
 
   const activeTerminalTab = useMemo(() => {
     const t = tabs.find((x) => x.id === activeId);
@@ -239,17 +402,11 @@ export default function App() {
   }, [tabs, activeId]);
   const activeLeafId = activeTerminalTab?.activeLeafId ?? null;
 
-  const searchAddons = useRef<Map<number, SearchAddon>>(new Map());
-  const [activeSearchAddon, setActiveSearchAddon] =
-    useState<SearchAddon | null>(null);
-  const searchInlineRef = useRef<SearchInlineHandle | null>(null);
   const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
   const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
   const previewRefs = useRef<Map<number, PreviewPaneHandle>>(new Map());
-  const [activeEditorHandle, setActiveEditorHandle] =
-    useState<EditorPaneHandle | null>(null);
-  const [gitHistoryHandle, setGitHistoryHandle] =
-    useState<GitHistorySearchHandle | null>(null);
+  const [, setActiveEditorHandle] = useState<EditorPaneHandle | null>(null);
+  const [, setGitHistoryHandle] = useState<GitHistorySearchHandle | null>(null);
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   useTerminalFileDrop();
   const explorerRef = useRef<FileExplorerHandle>(null);
@@ -258,7 +415,8 @@ export default function App() {
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
   const sidebarWidthRef = useRef(readSidebarWidth());
   const sidebarWidthWriteTimerRef = useRef(0);
-  const [sidebarView, setSidebarViewState] = useState<SidebarViewId>(readSidebarView);
+  const [sidebarView, setSidebarViewState] =
+    useState<SidebarViewId>(readSidebarView);
   const persistSidebarView = useCallback((view: SidebarViewId) => {
     setSidebarViewState(view);
     try {
@@ -346,7 +504,9 @@ export default function App() {
 
   const [home, setHome] = useState<string | null>(null);
   const [pendingCloseTab, setPendingCloseTab] = useState<number | null>(null);
-  const [pendingTerminalCloseTab, setPendingTerminalCloseTab] = useState<number | null>(null);
+  const [pendingTerminalCloseTab, setPendingTerminalCloseTab] = useState<
+    number | null
+  >(null);
   const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
   const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
   const [launchCwd, setLaunchCwd] = useState<string | null>(null);
@@ -379,7 +539,9 @@ export default function App() {
       }
       const dirty = tabsRef.current.some((t) => t.kind === "editor" && t.dirty);
       if (dirty) {
-        window.alert("Save or close unsaved editor tabs before switching workspace.");
+        window.alert(
+          "Save or close unsaved editor tabs before switching workspace.",
+        );
         return;
       }
 
@@ -396,11 +558,9 @@ export default function App() {
       }
 
       for (const id of liveLeavesRef.current) disposeSession(id);
-      searchAddons.current.clear();
       terminalRefs.current.clear();
       editorRefs.current.clear();
       previewRefs.current.clear();
-      setActiveSearchAddon(null);
       setActiveEditorHandle(null);
       setWorkspaceEnv(env.kind === "local" ? LOCAL_WORKSPACE : env);
       setHome(nextHome);
@@ -462,7 +622,9 @@ export default function App() {
     (ollamaBaseURL.trim().length > 0 && ollamaModelId.trim().length > 0) ||
     (openaiCompatibleBaseURL.trim().length > 0 &&
       openaiCompatibleModelId.trim().length > 0) ||
-    customEndpoints.some((e) => e.baseURL.trim().length > 0 && e.modelId.trim().length > 0);
+    customEndpoints.some(
+      (e) => e.baseURL.trim().length > 0 && e.modelId.trim().length > 0,
+    );
   const hasComposer = hasAnyKey(apiKeys) || hasLocalModel;
 
   const prefsHydrated = usePreferencesStore((s) => s.hydrated);
@@ -520,7 +682,6 @@ export default function App() {
   const isGitDiffTab =
     activeTab?.kind === "git-diff" || activeTab?.kind === "git-commit-file";
   const isGitHistoryTab = activeTab?.kind === "git-history";
-  const isSftpTab = activeTab?.kind === "hosts-sftp";
 
   // When an AI diff is approved (write_file applied to disk), reload any
   // open editor tabs for that path so the user sees the new content. We
@@ -543,20 +704,21 @@ export default function App() {
 
   useEffect(() => {
     type FileWrittenPayload = { path: string; source?: string };
-    const unlistenPromise = getCurrentWebviewWindow().listen<FileWrittenPayload>(
-      "fs:file-written",
-      (event) => {
-        if (event.payload.source === "editor") return;
-        const normalizedPath = event.payload.path.replace(/\\/g, "/");
-        const currentTabs = tabsRef.current;
-        for (const t of currentTabs) {
-          if (t.kind !== "editor") continue;
-          if (t.path.replace(/\\/g, "/") === normalizedPath) {
-            editorRefs.current.get(t.id)?.reload();
+    const unlistenPromise =
+      getCurrentWebviewWindow().listen<FileWrittenPayload>(
+        "fs:file-written",
+        (event) => {
+          if (event.payload.source === "editor") return;
+          const normalizedPath = event.payload.path.replace(/\\/g, "/");
+          const currentTabs = tabsRef.current;
+          for (const t of currentTabs) {
+            if (t.kind !== "editor") continue;
+            if (t.path.replace(/\\/g, "/") === normalizedPath) {
+              editorRefs.current.get(t.id)?.reload();
+            }
           }
-        }
-      },
-    );
+        },
+      );
     return () => {
       void unlistenPromise.then((un) => un());
     };
@@ -599,30 +761,32 @@ export default function App() {
   // the code editor. Saving it re-ingests into the runtime store + applies live.
   useEffect(() => {
     type FileWrittenPayload = { path: string; source?: string };
-    const unlistenPromise = getCurrentWebviewWindow().listen<FileWrittenPayload>(
-      "fs:file-written",
-      (event) => {
-        if (event.payload.source !== "editor") return;
-        if (!isThemeFilePath(event.payload.path)) return;
-        void (async () => {
-          try {
-            const res = await invoke<{ kind: string; content?: string }>(
-              "fs_read_file",
-              { path: event.payload.path, workspace: currentWorkspaceEnv() },
-            );
-            if (res.kind !== "text" || typeof res.content !== "string") return;
-            const parsed = parseThemeFile(res.content);
-            if (!parsed.ok) {
-              console.warn("[omnitab] theme not applied:", parsed.error);
-              return;
+    const unlistenPromise =
+      getCurrentWebviewWindow().listen<FileWrittenPayload>(
+        "fs:file-written",
+        (event) => {
+          if (event.payload.source !== "editor") return;
+          if (!isThemeFilePath(event.payload.path)) return;
+          void (async () => {
+            try {
+              const res = await invoke<{ kind: string; content?: string }>(
+                "fs_read_file",
+                { path: event.payload.path, workspace: currentWorkspaceEnv() },
+              );
+              if (res.kind !== "text" || typeof res.content !== "string")
+                return;
+              const parsed = parseThemeFile(res.content);
+              if (!parsed.ok) {
+                console.warn("[omnitab] theme not applied:", parsed.error);
+                return;
+              }
+              await saveCustomTheme(parsed.theme);
+            } catch (e) {
+              console.warn("[omnitab] theme ingest failed:", e);
             }
-            await saveCustomTheme(parsed.theme);
-          } catch (e) {
-            console.warn("[omnitab] theme ingest failed:", e);
-          }
-        })();
-      },
-    );
+          })();
+        },
+      );
     return () => {
       void unlistenPromise.then((un) => un());
     };
@@ -665,31 +829,486 @@ export default function App() {
   useWindowTitle(activeTab, explorerRoot);
 
   useEffect(() => {
-    setActiveSearchAddon(
-      activeLeafId !== null ? (searchAddons.current.get(activeLeafId) ?? null) : null,
-    );
     setActiveEditorHandle(editorRefs.current.get(activeId) ?? null);
-  }, [activeId, activeLeafId]);
+  }, [activeId]);
 
-  const handleSearchReady = useCallback(
-    (leafId: number, addon: SearchAddon) => {
-      searchAddons.current.set(leafId, addon);
-      if (leafId === activeLeafId) setActiveSearchAddon(addon);
+  const handleSearchReady = useCallback(() => {}, []);
+
+  const closeCurrentWindow = useCallback(() => {
+    void currentWindowRef.current.close().catch((e) => {
+      console.error("[omnitab] window close failed:", e);
+    });
+  }, []);
+
+  const updateExternalTabDragHover = useCallback(
+    (hover: ExternalTabDragHover | null) => {
+      externalTabDragHoverRef.current = hover;
+      setExternalTabDragHover(hover);
     },
-    [activeLeafId],
+    [],
+  );
+
+  const setGlobalTabDragActive = useCallback(
+    (transferId: string | null, active: boolean) => {
+      activeDragTransferIdRef.current = active ? transferId : null;
+      tabDragActiveRef.current = active;
+      setTabDragActive(active);
+      if (!active) updateExternalTabDragHover(null);
+    },
+    [updateExternalTabDragHover],
+  );
+
+  const startGlobalTabDrag = useCallback(
+    (payload: TabTransferPayload, raw: string) => {
+      setGlobalTabDragActive(payload.transferId, true);
+      void invoke("tab_drag_start", {
+        transferId: payload.transferId,
+        payload: raw,
+      });
+      void emit<TabDragSignal>(TAB_DRAG_STARTED_EVENT, {
+        transferId: payload.transferId,
+        sourceWindow: currentWindowLabel,
+      });
+    },
+    [currentWindowLabel, setGlobalTabDragActive],
+  );
+
+  const endGlobalTabDrag = useCallback(
+    (transferId: string) => {
+      if (activeDragTransferIdRef.current === transferId) {
+        setGlobalTabDragActive(null, false);
+      }
+      void invoke("tab_drag_end", { transferId });
+      void emit<TabDragSignal>(TAB_DRAG_ENDED_EVENT, {
+        transferId,
+        sourceWindow: currentWindowLabel,
+      });
+    },
+    [currentWindowLabel, setGlobalTabDragActive],
+  );
+
+  const publishTabDragHover = useCallback(
+    async (payload: TabTransferPayload) => {
+      try {
+        const [cursor, storedMetrics, allWindows] = await Promise.all([
+          cursorPosition(),
+          invoke<TabStripMetrics[]>("tab_drag_metrics"),
+          getAllWebviewWindows(),
+        ]);
+        const point: PhysicalPoint = { x: cursor.x, y: cursor.y };
+        const liveLabels = new Set(allWindows.map((w) => w.label));
+        const target = resolveTabDropTarget(point, storedMetrics, liveLabels);
+        const signal: TabDragHoverSignal = {
+          transferId: payload.transferId,
+          sourceWindow: payload.sourceWindow,
+          targetWindow: target?.windowLabel ?? null,
+          targetTabId: target?.targetId ?? null,
+          targetEdge: target?.edge ?? "after",
+          point,
+          title: labelFor(payload.tab),
+        };
+        void emit<TabDragHoverSignal>(TAB_DRAG_HOVER_EVENT, signal);
+      } catch (e) {
+        console.warn("[omnitab] tab drag hover failed:", e);
+      }
+    },
+    [],
+  );
+
+  const applyTabDragHover = useCallback(
+    async (signal: TabDragHoverSignal) => {
+      if (activeDragTransferIdRef.current !== signal.transferId) return;
+      if (signal.targetWindow !== currentWindowLabel) {
+        if (
+          externalTabDragHoverRef.current?.transferId === signal.transferId
+        ) {
+          updateExternalTabDragHover(null);
+        }
+        return;
+      }
+      try {
+        const [innerPosition, scaleFactor] = await Promise.all([
+          currentWindowRef.current.innerPosition(),
+          currentWindowRef.current.scaleFactor(),
+        ]);
+        if (activeDragTransferIdRef.current !== signal.transferId) return;
+        if (signal.targetWindow !== currentWindowLabel) return;
+        updateExternalTabDragHover({
+          transferId: signal.transferId,
+          targetId: signal.targetTabId,
+          edge: signal.targetEdge,
+          preview: {
+            title: signal.title,
+            x: (signal.point.x - innerPosition.x) / scaleFactor,
+            y: (signal.point.y - innerPosition.y) / scaleFactor,
+          },
+        });
+      } catch (e) {
+        console.warn("[omnitab] tab drag hover display failed:", e);
+      }
+    },
+    [currentWindowLabel, updateExternalTabDragHover],
+  );
+
+  useEffect(() => {
+    const isTabDropZone = (target: EventTarget | null) =>
+      !!(target as HTMLElement | null)?.closest?.(
+        "[data-omnitab-tab-drop-zone]",
+      );
+
+    const onDragOver = (e: DragEvent) => {
+      if (!tabDragActiveRef.current || isTabDropZone(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+    };
+
+    const onDrop = (e: DragEvent) => {
+      if (!tabDragActiveRef.current || isTabDropZone(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    document.addEventListener("dragover", onDragOver, true);
+    document.addEventListener("drop", onDrop, true);
+    return () => {
+      document.removeEventListener("dragover", onDragOver, true);
+      document.removeEventListener("drop", onDrop, true);
+    };
+  }, []);
+
+  const disposeLastTabAndCloseWindow = useCallback(
+    (tab: Tab) => {
+      editorRefs.current.delete(tab.id);
+      previewRefs.current.delete(tab.id);
+      if (tab.kind === "terminal") {
+        for (const leafId of leafIds(tab.paneTree)) disposeSession(leafId);
+      }
+      closeCurrentWindow();
+    },
+    [closeCurrentWindow],
   );
 
   const disposeTab = useCallback(
     (id: number) => {
-      // Terminal-leaf-keyed maps (terminalRefs/searchAddons) are pruned by
-      // the effect below as the pane tree changes; only the tab-id-keyed
-      // handles need explicit cleanup here.
+      const tab = tabsRef.current.find((t) => t.id === id);
+      if (!tab) return;
+      // Terminal-leaf-keyed maps are pruned by the effect below as the pane
+      // tree changes; only the tab-id-keyed handles need explicit cleanup here.
       editorRefs.current.delete(id);
       previewRefs.current.delete(id);
+      if (tabsRef.current.length <= 1) {
+        disposeLastTabAndCloseWindow(tab);
+        return;
+      }
       closeTab(id);
     },
-    [closeTab],
+    [closeTab, disposeLastTabAndCloseWindow],
   );
+
+  const detachTransferredTab = useCallback(
+    (id: number) => {
+      const tab = tabsRef.current.find((t) => t.id === id);
+      if (!tab) return;
+      editorRefs.current.delete(id);
+      previewRefs.current.delete(id);
+      if (tab.kind === "terminal") {
+        for (const leafId of leafIds(tab.paneTree)) {
+          detachSessionForTransfer(leafId);
+        }
+      }
+      if (tabsRef.current.length <= 1) {
+        closeCurrentWindow();
+        return;
+      }
+      removeTabWithoutDisposing(id);
+    },
+    [closeCurrentWindow, removeTabWithoutDisposing],
+  );
+
+  const prepareTabTransfer = useCallback(
+    (id: number): string | null => {
+      const tab = tabsRef.current.find((t) => t.id === id);
+      if (!tab) return null;
+      if (tab.kind === "editor" && tab.dirty) {
+        window.alert("Save or close unsaved editor tabs before moving them.");
+        return null;
+      }
+      const transferId = randomTransferId();
+      const payload: TabTransferPayload = {
+        schema: 1,
+        transferId,
+        sourceWindow: currentWindowLabel,
+        sourceTabId: id,
+        tab: tabWithPtyIds(tab),
+      };
+      const raw = JSON.stringify(payload);
+      pendingTransfersRef.current.set(transferId, { tabId: id, payload });
+      startGlobalTabDrag(payload, raw);
+      return raw;
+    },
+    [currentWindowLabel, startGlobalTabDrag],
+  );
+
+  const acceptTransferredTab = useCallback(
+    (
+      payload: TabTransferPayload,
+      targetId: number | null,
+      edge: TabDropEdge,
+    ) => {
+      if (payload.sourceWindow === currentWindowLabel) {
+        moveTab(payload.sourceTabId, targetId, edge);
+        pendingTransfersRef.current.delete(payload.transferId);
+        endGlobalTabDrag(payload.transferId);
+        return;
+      }
+      if (acceptedTransfersRef.current.has(payload.transferId)) return;
+      acceptedTransfersRef.current.add(payload.transferId);
+      adoptTransferredTab(
+        payload.tab,
+        targetId,
+        edge,
+        payload.replaceTargetTabs === true,
+      );
+      void emitTo<TabTransferAccepted>(
+        payload.sourceWindow,
+        TAB_TRANSFER_ACCEPTED_EVENT,
+        { transferId: payload.transferId, targetWindow: currentWindowLabel },
+      );
+    },
+    [adoptTransferredTab, currentWindowLabel, endGlobalTabDrag, moveTab],
+  );
+
+  const completeTabDragAtPointer = useCallback(
+    async (payload: TabTransferPayload): Promise<boolean> => {
+      if (!pendingTransfersRef.current.has(payload.transferId)) return true;
+      let point: PhysicalPoint;
+      let metrics: TabStripMetrics[];
+      let liveLabels: Set<string>;
+      let windows: Awaited<ReturnType<typeof getAllWebviewWindows>>;
+      try {
+        const [cursor, storedMetrics, allWindows] = await Promise.all([
+          cursorPosition(),
+          invoke<TabStripMetrics[]>("tab_drag_metrics"),
+          getAllWebviewWindows(),
+        ]);
+        point = { x: cursor.x, y: cursor.y };
+        metrics = storedMetrics;
+        windows = allWindows;
+        liveLabels = new Set(allWindows.map((w) => w.label));
+      } catch (e) {
+        console.warn("[omnitab] tab drag hit-test failed:", e);
+        return false;
+      }
+      const target = resolveTabDropTarget(point, metrics, liveLabels);
+      if (!target) return false;
+      const targetedPayload: TabTransferPayload = {
+        ...payload,
+        targetTabId: target.targetId,
+        targetEdge: target.edge,
+      };
+      if (target.windowLabel === currentWindowLabel) {
+        acceptTransferredTab(targetedPayload, target.targetId, target.edge);
+        return true;
+      }
+      try {
+        await emitTo<TabTransferPayload>(
+          target.windowLabel,
+          TAB_TRANSFER_EVENT,
+          targetedPayload,
+        );
+        void windows.find((w) => w.label === target.windowLabel)?.setFocus();
+        return true;
+      } catch (e) {
+        console.warn("[omnitab] tab transfer emit failed:", e);
+        return false;
+      }
+    },
+    [acceptTransferredTab, currentWindowLabel],
+  );
+
+  const detachTabIntoNewWindow = useCallback(
+    async (payload: TabTransferPayload): Promise<boolean> => {
+      const pending = pendingTransfersRef.current.get(payload.transferId);
+      if (!pending) return true;
+      const cwd = tabPrimaryCwd(pending.payload.tab) ?? inheritedCwdForNewTab();
+      const nextPayload: TabTransferPayload = {
+        ...pending.payload,
+        replaceTargetTabs: true,
+      };
+      let label: string;
+      try {
+        label = await openMainWindow(cwd);
+      } catch (e) {
+        console.error("[omnitab] open transfer window failed:", e);
+        return false;
+      }
+      pendingNewWindowTransfersRef.current.set(label, nextPayload);
+      const send = () => {
+        const current = pendingNewWindowTransfersRef.current.get(label);
+        if (!current) return;
+        void emitTo<TabTransferPayload>(label, TAB_TRANSFER_EVENT, current);
+      };
+      for (const delay of [80, 180, 360, 700, 1200, 2200, 3600]) {
+        window.setTimeout(send, delay);
+      }
+      return true;
+    },
+    [inheritedCwdForNewTab],
+  );
+
+  const finishTabDragAtPointer = useCallback(
+    async (payload: TabTransferPayload, detached: boolean) => {
+      if (!pendingTransfersRef.current.has(payload.transferId)) return;
+      if (finishingTransfersRef.current.has(payload.transferId)) return;
+      finishingTransfersRef.current.add(payload.transferId);
+
+      const handled = await completeTabDragAtPointer(payload);
+      if (handled) {
+        window.setTimeout(() => {
+          if (pendingTransfersRef.current.has(payload.transferId)) {
+            endGlobalTabDrag(payload.transferId);
+          }
+        }, 1600);
+        return;
+      }
+
+      if (!detached) {
+        pendingTransfersRef.current.delete(payload.transferId);
+        endGlobalTabDrag(payload.transferId);
+        return;
+      }
+
+      const opened = await detachTabIntoNewWindow(payload);
+      if (!opened) {
+        pendingTransfersRef.current.delete(payload.transferId);
+      }
+      window.setTimeout(() => {
+        endGlobalTabDrag(payload.transferId);
+      }, 900);
+    },
+    [completeTabDragAtPointer, detachTabIntoNewWindow, endGlobalTabDrag],
+  );
+
+  const handleTabDragEnd = useCallback(
+    (raw: string, detached: boolean) => {
+      const payload = parseTabTransferPayload(raw);
+      if (!payload || payload.sourceWindow !== currentWindowLabel) return;
+      window.setTimeout(() => {
+        void finishTabDragAtPointer(payload, detached);
+      }, 20);
+    },
+    [currentWindowLabel, finishTabDragAtPointer],
+  );
+
+  useEffect(() => {
+    if (!tabDragActive) return;
+    let disposed = false;
+    const interval = window.setInterval(() => {
+      void (async () => {
+        if (disposed) return;
+        const transferId = activeDragTransferIdRef.current;
+        if (!transferId) return;
+        const pending = pendingTransfersRef.current.get(transferId);
+        if (!pending) return;
+        await publishTabDragHover(pending.payload);
+        const leftDown = await invoke<boolean | null>(
+          "tab_drag_left_button_down",
+        ).catch(() => null);
+        if (leftDown !== false) return;
+        await finishTabDragAtPointer(pending.payload, true);
+      })();
+    }, 80);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [finishTabDragAtPointer, publishTabDragHover, tabDragActive]);
+
+  useEffect(() => {
+    let alive = true;
+    const unlisteners: Array<() => void> = [];
+    void currentWindowRef.current
+      .listen<TabTransferPayload>(TAB_TRANSFER_EVENT, (event) => {
+        acceptTransferredTab(
+          event.payload,
+          event.payload.targetTabId ?? null,
+          event.payload.targetEdge ?? "after",
+        );
+      })
+      .then((unlisten) => {
+        if (alive) unlisteners.push(unlisten);
+        else unlisten();
+      });
+    void currentWindowRef.current
+      .listen<TabTransferAccepted>(TAB_TRANSFER_ACCEPTED_EVENT, (event) => {
+        const pending = pendingTransfersRef.current.get(
+          event.payload.transferId,
+        );
+        if (!pending) return;
+        pendingTransfersRef.current.delete(event.payload.transferId);
+        for (const [label, payload] of pendingNewWindowTransfersRef.current) {
+          if (payload.transferId === event.payload.transferId) {
+            pendingNewWindowTransfersRef.current.delete(label);
+          }
+        }
+        endGlobalTabDrag(event.payload.transferId);
+        detachTransferredTab(pending.tabId);
+      })
+      .then((unlisten) => {
+        if (alive) unlisteners.push(unlisten);
+        else unlisten();
+      });
+    void listen<TabTransferReady>(TAB_TRANSFER_READY_EVENT, (event) => {
+      const payload = pendingNewWindowTransfersRef.current.get(
+        event.payload.label,
+      );
+      if (!payload) return;
+      void emitTo<TabTransferPayload>(
+        event.payload.label,
+        TAB_TRANSFER_EVENT,
+        payload,
+      );
+    }).then((unlisten) => {
+      if (alive) unlisteners.push(unlisten);
+      else unlisten();
+    });
+    void listen<TabDragSignal>(TAB_DRAG_STARTED_EVENT, (event) => {
+      setGlobalTabDragActive(event.payload.transferId, true);
+    }).then((unlisten) => {
+      if (alive) unlisteners.push(unlisten);
+      else unlisten();
+    });
+    void listen<TabDragHoverSignal>(TAB_DRAG_HOVER_EVENT, (event) => {
+      void applyTabDragHover(event.payload);
+    }).then((unlisten) => {
+      if (alive) unlisteners.push(unlisten);
+      else unlisten();
+    });
+    void listen<TabDragSignal>(TAB_DRAG_ENDED_EVENT, (event) => {
+      if (activeDragTransferIdRef.current === event.payload.transferId) {
+        setGlobalTabDragActive(null, false);
+      }
+    }).then((unlisten) => {
+      if (alive) unlisteners.push(unlisten);
+      else unlisten();
+    });
+    void currentWindowRef.current.emit<TabTransferReady>(
+      TAB_TRANSFER_READY_EVENT,
+      { label: currentWindowLabel },
+    );
+    return () => {
+      alive = false;
+      for (const unlisten of unlisteners) unlisten();
+    };
+  }, [
+    acceptTransferredTab,
+    applyTabDragHover,
+    currentWindowLabel,
+    detachTransferredTab,
+    endGlobalTabDrag,
+    setGlobalTabDragActive,
+  ]);
 
   // Drives session disposal off the pane tree, not React lifecycles —
   // split/unsplit re-mount components but the leaf is still live.
@@ -707,8 +1326,6 @@ export default function App() {
     liveLeavesRef.current = live;
     for (const k of [...terminalRefs.current.keys()])
       if (!live.has(k)) terminalRefs.current.delete(k);
-    for (const k of [...searchAddons.current.keys()])
-      if (!live.has(k)) searchAddons.current.delete(k);
   }, [tabs]);
 
   const handleClose = useCallback(
@@ -874,31 +1491,37 @@ export default function App() {
     void openMainWindow(inheritedCwdForNewTab());
   }, [inheritedCwdForNewTab]);
 
-  const openHostsView = useCallback(() => {
-    cycleSidebarView("hosts");
-  }, [cycleSidebarView]);
-
   const openHostShell = useCallback(
     (host: HostProfile) => {
-      const { leafId } = newHostShellTab(inheritedCwdForNewTab(), host.name);
+      const { leafId, reused } = newHostShellTab(
+        inheritedCwdForNewTab(),
+        host.name,
+        host.id,
+      );
+      if (reused) {
+        setTimeout(() => terminalRefs.current.get(leafId)?.focus(), 0);
+        return;
+      }
       void (async () => {
+        const passwordPromise =
+          host.authMode === "password"
+            ? getHostPassword(host.id)
+            : Promise.resolve(null);
         await whenSessionReady(leafId);
         writeToSession(leafId, `${buildSshCommand(host)}\r`);
+        const password = await passwordPromise;
+        if (!password) return;
+        await waitForSshPasswordPrompt(
+          () => {
+            if (!liveLeavesRef.current.has(leafId)) return null;
+            return terminalRefs.current.get(leafId)?.getBuffer(80) ?? "";
+          },
+          () => writeToSession(leafId, `${password}\r`),
+        );
       })();
     },
     [inheritedCwdForNewTab, newHostShellTab],
   );
-
-  const openHostSftp = useCallback(
-    (host: HostProfile) => {
-      openHostSftpTab(host);
-    },
-    [openHostSftpTab],
-  );
-
-  const openNewPrivateTab = useCallback(() => {
-    newPrivateTab(inheritedCwdForNewTab());
-  }, [newPrivateTab, inheritedCwdForNewTab]);
 
   const sendCd = useCallback(
     (path: string) => {
@@ -1033,8 +1656,7 @@ export default function App() {
       ),
     [tabs],
   );
-  const sourceControlActive =
-    hasOpenGitTab || sidebarView === "source-control";
+  const sourceControlActive = hasOpenGitTab || sidebarView === "source-control";
   // Stable per-session path so switching tabs / cd-ing in a shell does NOT
   // re-fire git IPC for the badge. The active panel resolves the current
   // context path on its own when the user actually opens git.
@@ -1112,12 +1734,93 @@ export default function App() {
 
   const [zenMode, setZenMode] = useState(false);
 
+  const publishTabStripMetrics = useCallback(async () => {
+    const strip = document.querySelector<HTMLElement>(TAB_STRIP_SELECTOR);
+    if (!strip) {
+      void invoke("tab_drag_clear_metrics", { label: currentWindowLabel });
+      return;
+    }
+    const [innerPosition, scaleFactor] = await Promise.all([
+      currentWindowRef.current.innerPosition(),
+      currentWindowRef.current.scaleFactor(),
+    ]);
+    const toScreenRect = (rect: DOMRect) => ({
+      x: Math.round(innerPosition.x + rect.left * scaleFactor),
+      y: Math.round(innerPosition.y + rect.top * scaleFactor),
+      width: Math.round(rect.width * scaleFactor),
+      height: Math.round(rect.height * scaleFactor),
+    });
+    const stripRect = toScreenRect(strip.getBoundingClientRect());
+    if (stripRect.width <= 0 || stripRect.height <= 0) {
+      void invoke("tab_drag_clear_metrics", { label: currentWindowLabel });
+      return;
+    }
+    const tabRects = Array.from(
+      strip.querySelectorAll<HTMLElement>("[data-tab-id]"),
+    )
+      .map((el) => {
+        const id = Number(el.dataset.tabId);
+        if (!Number.isFinite(id)) return null;
+        return {
+          id,
+          ...toScreenRect(el.getBoundingClientRect()),
+        };
+      })
+      .filter((rect): rect is TabStripMetrics["tabs"][number] => !!rect);
+    const metrics: TabStripMetrics = {
+      windowLabel: currentWindowLabel,
+      strip: stripRect,
+      tabs: tabRects,
+    };
+    void invoke("tab_drag_set_metrics", {
+      label: currentWindowLabel,
+      metrics,
+    });
+  }, [currentWindowLabel]);
+
+  useEffect(() => {
+    let disposed = false;
+    let frame = 0;
+    const schedule = () => {
+      if (disposed) return;
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        void publishTabStripMetrics();
+      });
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(document.body);
+    const strip = document.querySelector<HTMLElement>(TAB_STRIP_SELECTOR);
+    if (strip) {
+      observer.observe(strip);
+      for (const tab of strip.querySelectorAll<HTMLElement>("[data-tab-id]")) {
+        observer.observe(tab);
+      }
+    }
+    window.addEventListener("resize", schedule);
+    const interval = window.setInterval(schedule, tabDragActive ? 120 : 1200);
+    return () => {
+      disposed = true;
+      if (frame) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.clearInterval(interval);
+    };
+  }, [activeId, publishTabStripMetrics, tabDragActive, tabs, zenMode]);
+
+  useEffect(() => {
+    return () => {
+      void invoke("tab_drag_clear_metrics", { label: currentWindowLabel });
+    };
+  }, [currentWindowLabel]);
+
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
       "commandPalette.open": () => setCommandPaletteOpen(true),
       "window.new": openNewWindow,
       "tab.new": openNewTab,
-      "tab.newPrivate": openNewPrivateTab,
       "tab.newPreview": () => openPreviewTab(""),
       "tab.newEditor": () => setNewEditorOpen(true),
       "tab.close": handleCloseTabOrPane,
@@ -1132,7 +1835,6 @@ export default function App() {
       "terminal.clear": () => {
         clearFocusedTerminal();
       },
-      "search.focus": () => searchInlineRef.current?.focus(),
       "ai.toggle": togglePanelAndFocus,
       "ai.askSelection": askFromSelection,
       "shortcuts.open": () => setShortcutsOpen((v) => !v),
@@ -1151,7 +1853,6 @@ export default function App() {
       cycleTab,
       handleCloseTabOrPane,
       openNewTab,
-      openNewPrivateTab,
       openPreviewTab,
       selectByIndex,
       splitActivePaneInActiveTab,
@@ -1239,6 +1940,11 @@ export default function App() {
     [updateTab],
   );
 
+  const handlePreviewTitle = useCallback(
+    (id: number, title: string) => updateTab(id, { title }),
+    [updateTab],
+  );
+
   const authorizedCwds = useRef(new Set<string>());
   const handleTerminalCwd = useCallback(
     (leafId: number, cwd: string) => {
@@ -1300,47 +2006,15 @@ export default function App() {
     [updateTab],
   );
 
-  const searchTarget = useMemo<SearchTarget>(() => {
-    if (isTerminalTab && activeLeafId !== null && activeSearchAddon)
-      return {
-        kind: "terminal",
-        addon: activeSearchAddon,
-        focus: () => terminalRefs.current.get(activeLeafId)?.focus(),
-      };
-    if (isEditorTab && activeEditorHandle)
-      return {
-        kind: "editor",
-        handle: activeEditorHandle,
-        focus: () => activeEditorHandle.focus(),
-      };
-    if (isGitHistoryTab && gitHistoryHandle)
-      return {
-        kind: "git-history",
-        handle: gitHistoryHandle,
-        focus: () => {},
-      };
-    return null;
-  }, [
-    isTerminalTab,
-    isEditorTab,
-    isGitHistoryTab,
-    activeLeafId,
-    activeSearchAddon,
-    activeEditorHandle,
-    gitHistoryHandle,
-  ]);
-
   const commandPaletteActions = useMemo(
     () =>
       createCommandPaletteActions({
         tabs,
         activeId,
-        searchTarget,
         explorerRoot,
         home,
         openNewTab,
         openNewWindow,
-        openNewPrivate: openNewPrivateTab,
         openNewEditor: () => setNewEditorOpen(true),
         openNewPreview: () => openPreviewTab(""),
         closeActiveTabOrPane: handleCloseTabOrPane,
@@ -1350,7 +2024,6 @@ export default function App() {
         splitPaneDown: () => splitActivePaneInActiveTab("col"),
         focusNextPane: () => focusNextPaneInTab(activeId, 1),
         focusPreviousPane: () => focusNextPaneInTab(activeId, -1),
-        focusSearch: () => searchInlineRef.current?.focus(),
         focusExplorerSearch: () => explorerRef.current?.focusSearch(),
         toggleSidebar,
         toggleAi: togglePanelAndFocus,
@@ -1361,12 +2034,10 @@ export default function App() {
     [
       tabs,
       activeId,
-      searchTarget,
       explorerRoot,
       home,
       openNewTab,
       openNewWindow,
-      openNewPrivateTab,
       openPreviewTab,
       handleCloseTabOrPane,
       cycleTab,
@@ -1384,7 +2055,11 @@ export default function App() {
     const findCwd = () => {
       const active = tabs.find((x) => x.id === activeId);
       if (active?.kind === "terminal") {
-        return findLeafCwd(active.paneTree, active.activeLeafId) ?? active.cwd ?? null;
+        return (
+          findLeafCwd(active.paneTree, active.activeLeafId) ??
+          active.cwd ??
+          null
+        );
       }
       for (let i = tabs.length - 1; i >= 0; i--) {
         const t = tabs[i];
@@ -1400,13 +2075,8 @@ export default function App() {
       getTerminalContext: () => {
         const t = tabs.find((x) => x.id === activeId);
         if (t?.kind !== "terminal") return null;
-        if (t.private) return null;
         const buf = terminalRefs.current.get(t.activeLeafId)?.getBuffer(300);
         return buf ? redactSensitive(buf) : null;
-      },
-      isActiveTerminalPrivate: () => {
-        const t = tabs.find((x) => x.id === activeId);
-        return t?.kind === "terminal" && t.private === true;
       },
       injectIntoActivePty: (text) => {
         const t = tabs.find((x) => x.id === activeId);
@@ -1431,8 +2101,12 @@ export default function App() {
         if (!trimmed) return null;
         const oneLine = trimmed.replace(/\s*\r?\n\s*/g, " ");
         const cwd = findCwd();
-        const short = oneLine.length > 32 ? `${oneLine.slice(0, 32)}…` : oneLine;
-        const { tabId, leafId } = newAgentTab(cwd ?? undefined, `claude · ${short}`);
+        const short =
+          oneLine.length > 32 ? `${oneLine.slice(0, 32)}…` : oneLine;
+        const { tabId, leafId } = newAgentTab(
+          cwd ?? undefined,
+          `claude · ${short}`,
+        );
         useManagedAgentsStore
           .getState()
           .register({ leafId, tabId, sessionId, task: oneLine, cwd });
@@ -1528,6 +2202,7 @@ export default function App() {
           activeId={activeId}
           registerHandle={registerPreviewHandle}
           onUrlChange={handlePreviewUrl}
+          onTitleChange={handlePreviewTitle}
         />
       </div>
       <div
@@ -1576,15 +2251,6 @@ export default function App() {
           onSearchHandle={setGitHistoryHandle}
         />
       </div>
-      <div
-        className={cn(
-          "absolute inset-0",
-          !isSftpTab && "invisible pointer-events-none",
-        )}
-        aria-hidden={!isSftpTab}
-      >
-        <SftpStack tabs={tabs} activeId={activeId} />
-      </div>
     </div>
   );
 
@@ -1594,30 +2260,28 @@ export default function App() {
         <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
           {!zenMode && (
             <Header
-            tabs={tabs}
-            activeId={activeId}
-            onSelect={setActiveId}
-            onNew={openNewTab}
-            onNewWindow={openNewWindow}
-            onNewPrivate={openNewPrivateTab}
-            onNewPreview={() => openPreviewTab("")}
-            onNewEditor={() => setNewEditorOpen(true)}
-            onNewGitGraph={openGitGraphFromContext}
-            onNewHosts={openHostsView}
-            onClose={handleClose}
-            onPin={pinTab}
-            onRename={handleRenameTab}
-            onToggleSidebar={toggleSidebar}
-            onSplit={splitActivePaneInActiveTab}
-            canSplit={
-              activeTerminalTab !== null &&
-              leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
-            }
-            onActivateAgent={onActivateAgent}
-            onActivateLocalAgent={onActivateLocalAgent}
-            onOpenSettings={() => void openSettingsWindow()}
-            searchTarget={searchTarget}
-            searchRef={searchInlineRef}
+              tabs={tabs}
+              activeId={activeId}
+              onSelect={setActiveId}
+              onNew={openNewTab}
+              onNewWindow={openNewWindow}
+              onNewPreview={() => openPreviewTab("")}
+              onClose={handleClose}
+              onPin={pinTab}
+              onRename={handleRenameTab}
+              onTabDragStart={prepareTabTransfer}
+              onTabDragEnd={handleTabDragEnd}
+              tabDragActive={tabDragActive}
+              externalTabDragHover={externalTabDragHover}
+              onToggleSidebar={toggleSidebar}
+              onSplit={splitActivePaneInActiveTab}
+              canSplit={
+                activeTerminalTab !== null &&
+                leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
+              }
+              onActivateAgent={onActivateAgent}
+              onActivateLocalAgent={onActivateLocalAgent}
+              onOpenSettings={() => void openSettingsWindow()}
             />
           )}
 
@@ -1641,9 +2305,9 @@ export default function App() {
                 <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
                   <div className="min-h-0 flex-1">
                     {sidebarView === "explorer" ? (
-                      <FileExplorer
+                      <HostsPanel
                         ref={explorerRef}
-                        rootPath={explorerRoot}
+                        localRootPath={explorerRoot}
                         activeFilePath={explorerActiveFilePath}
                         onOpenFile={handleOpenFile}
                         onPathRenamed={handlePathRenamed}
@@ -1651,6 +2315,7 @@ export default function App() {
                         onRevealInTerminal={cdInNewTab}
                         onAttachToAgent={handleAttachFileToAgent}
                         onOpenMarkdownPreview={openMarkdownPreview}
+                        onOpenHostTerminal={openHostShell}
                       />
                     ) : sidebarView === "source-control" ? (
                       <SourceControlPanel
@@ -1660,12 +2325,7 @@ export default function App() {
                         onOpenGitGraph={openGitGraphFromContext}
                         onOpenFile={handleOpenFile}
                       />
-                    ) : (
-                      <HostsPanel
-                        onOpenSsh={openHostShell}
-                        onOpenSftp={openHostSftp}
-                      />
-                    )}
+                    ) : null}
                   </div>
                   <SidebarRail
                     activeView={sidebarView}
@@ -1709,16 +2369,13 @@ export default function App() {
 
           {!zenMode && (
             <StatusBar
-            cwd={activeCwd}
-            filePath={activeFilePath}
-            home={home}
-            onCd={sendCd}
-            onWorkspaceChange={switchWorkspace}
-            onOpenMini={openMini}
-            hasComposer={hasComposer}
-            privateActive={
-              activeTab?.kind === "terminal" && activeTab.private === true
-            }
+              cwd={activeCwd}
+              filePath={activeFilePath}
+              home={home}
+              onCd={sendCd}
+              onWorkspaceChange={switchWorkspace}
+              onOpenMini={openMini}
+              hasComposer={hasComposer}
             />
           )}
 

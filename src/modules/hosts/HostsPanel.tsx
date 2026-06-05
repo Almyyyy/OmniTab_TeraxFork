@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Empty, EmptyContent, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,34 +22,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
 import type { HostDraft, HostProfile } from "@/modules/hosts/types";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Add01Icon,
-  ComputerTerminal02Icon,
   Delete02Icon,
-  FolderTransferIcon,
+  FolderTreeIcon,
   MoreHorizontalIcon,
   PencilEdit02Icon,
   ServerStack02Icon,
 } from "@hugeicons/core-free-icons";
 import {
+  forwardRef,
+  useCallback,
   useEffect,
-  useMemo,
+  useImperativeHandle,
+  useRef,
   useState,
   type Dispatch,
   type FormEvent,
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { RemoteFileExplorer } from "./RemoteFileExplorer";
 import { newHostId, useHostsStore } from "./lib/hostsStore";
 import { clearHostPassword, setHostPassword } from "./lib/passwords";
 
+type SourceValue = "local" | `host:${string}`;
+
 type Props = {
-  onOpenSsh: (host: HostProfile) => void;
-  onOpenSftp: (host: HostProfile) => void;
+  localRootPath: string | null;
+  activeFilePath?: string | null;
+  onOpenFile: (path: string, pin?: boolean) => void;
+  onPathRenamed?: (from: string, to: string) => void;
+  onPathDeleted?: (path: string) => void;
+  onRevealInTerminal?: (path: string) => void;
+  onAttachToAgent?: (path: string) => void;
+  onOpenMarkdownPreview?: (path: string) => void;
+  onOpenHostTerminal: (host: HostProfile) => void;
 };
+
+const SOURCE_STORAGE_KEY = "omnitab.files.source";
 
 const EMPTY_DRAFT: HostDraft = {
   name: "",
@@ -62,219 +75,253 @@ const EMPTY_DRAFT: HostDraft = {
   remotePath: ".",
 };
 
-export function HostsPanel({ onOpenSsh, onOpenSftp }: Props) {
-  const hydrate = useHostsStore((s) => s.hydrate);
-  const hosts = useHostsStore((s) => s.hosts);
-  const remove = useHostsStore((s) => s.remove);
-  const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<HostProfile | null>(null);
-  const [creating, setCreating] = useState(false);
+export const HostsPanel = forwardRef<FileExplorerHandle, Props>(
+  function HostsPanel(
+    {
+      localRootPath,
+      activeFilePath,
+      onOpenFile,
+      onPathRenamed,
+      onPathDeleted,
+      onRevealInTerminal,
+      onAttachToAgent,
+      onOpenMarkdownPreview,
+      onOpenHostTerminal,
+    },
+    ref,
+  ) {
+    const hydrate = useHostsStore((s) => s.hydrate);
+    const hosts = useHostsStore((s) => s.hosts);
+    const remove = useHostsStore((s) => s.remove);
+    const [selectedSource, setSelectedSource] =
+      useState<SourceValue>(readSelectedSource);
+    const [editing, setEditing] = useState<HostProfile | null>(null);
+    const [creating, setCreating] = useState(false);
+    const localExplorerRef = useRef<FileExplorerHandle>(null);
+    const remoteExplorerRef = useRef<FileExplorerHandle>(null);
 
-  useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
+    useEffect(() => {
+      void hydrate();
+    }, [hydrate]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return hosts;
-    return hosts.filter((h) =>
-      [h.name, h.hostname, h.username]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
+    const selectedHost =
+      selectedSource === "local"
+        ? null
+        : (hosts.find((host) => sourceForHost(host.id) === selectedSource) ??
+          null);
+
+    const persistSource = useCallback(
+      (source: SourceValue) => {
+        setSelectedSource(source);
+        try {
+          window.localStorage.setItem(SOURCE_STORAGE_KEY, source);
+        } catch {
+          // storage may fail in private mode
+        }
+        if (source !== "local") {
+          const host = hosts.find((h) => sourceForHost(h.id) === source);
+          if (host) onOpenHostTerminal(host);
+        }
+      },
+      [hosts, onOpenHostTerminal],
     );
-  }, [hosts, query]);
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-card text-sm">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <HugeiconsIcon
-            icon={ServerStack02Icon}
-            size={16}
-            strokeWidth={2}
-            className="shrink-0 text-muted-foreground"
-          />
-          <div className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Hosts
+    useEffect(() => {
+      if (selectedSource === "local") return;
+      const stillExists = hosts.some(
+        (host) => sourceForHost(host.id) === selectedSource,
+      );
+      if (!stillExists) persistSource("local");
+    }, [hosts, persistSource, selectedSource]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        focus: () => {
+          if (selectedHost) remoteExplorerRef.current?.focus();
+          else localExplorerRef.current?.focus();
+        },
+        isFocused: () =>
+          selectedHost
+            ? (remoteExplorerRef.current?.isFocused() ?? false)
+            : (localExplorerRef.current?.isFocused() ?? false),
+        focusSearch: () => {
+          if (selectedHost) remoteExplorerRef.current?.focusSearch();
+          else localExplorerRef.current?.focusSearch();
+        },
+      }),
+      [selectedHost],
+    );
+
+    const deleteHost = useCallback(
+      (host: HostProfile) => {
+        if (!window.confirm(`Delete "${host.name}"?`)) return;
+        remove(host.id);
+        void clearHostPassword(host.id);
+        if (selectedSource === sourceForHost(host.id)) persistSource("local");
+      },
+      [persistSource, remove, selectedSource],
+    );
+
+    const sourceValue = selectedHost ? sourceForHost(selectedHost.id) : "local";
+
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-card text-sm">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <HugeiconsIcon
+              icon={FolderTreeIcon}
+              size={16}
+              strokeWidth={2}
+              className="shrink-0 text-muted-foreground"
+            />
+            <div className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Files
+            </div>
           </div>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="rounded-md"
+            title="New host"
+            onClick={() => setCreating(true)}
+          >
+            <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={2} />
+          </Button>
+          {selectedHost ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  className="rounded-md"
+                  title="Host options"
+                >
+                  <HugeiconsIcon
+                    icon={MoreHorizontalIcon}
+                    size={13}
+                    strokeWidth={2}
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-36">
+                <DropdownMenuItem onSelect={() => setEditing(selectedHost)}>
+                  <HugeiconsIcon
+                    icon={PencilEdit02Icon}
+                    size={14}
+                    strokeWidth={2}
+                  />
+                  Edit Host
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => deleteHost(selectedHost)}
+                >
+                  <HugeiconsIcon
+                    icon={Delete02Icon}
+                    size={14}
+                    strokeWidth={2}
+                  />
+                  Delete Host
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          className="rounded-md"
-          title="New host"
-          onClick={() => setCreating(true)}
-        >
-          <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={2} />
-        </Button>
-      </div>
 
-      <div className="shrink-0 border-b border-border/50 px-2 py-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search hosts"
-          className="h-8 rounded-lg bg-background/60 text-sm"
+        <div className="shrink-0 border-b border-border/50 px-2 py-2">
+          <Select
+            value={sourceValue}
+            onValueChange={(value) => persistSource(value as SourceValue)}
+          >
+            <SelectTrigger className="h-8 w-full rounded-lg bg-background/60 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="local">
+                <div className="flex min-w-0 items-center gap-2">
+                  <HugeiconsIcon
+                    icon={FolderTreeIcon}
+                    size={14}
+                    strokeWidth={2}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                  <span className="truncate">Local</span>
+                </div>
+              </SelectItem>
+              {hosts.map((host) => (
+                <SelectItem key={host.id} value={sourceForHost(host.id)}>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <HugeiconsIcon
+                      icon={ServerStack02Icon}
+                      size={14}
+                      strokeWidth={2}
+                      className="shrink-0 text-muted-foreground"
+                    />
+                    <span className="truncate">{host.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="min-h-0 flex-1">
+          {selectedHost ? (
+            <RemoteFileExplorer
+              ref={remoteExplorerRef}
+              host={selectedHost}
+              onOpenTerminal={onOpenHostTerminal}
+            />
+          ) : (
+            <FileExplorer
+              ref={localExplorerRef}
+              rootPath={localRootPath}
+              activeFilePath={activeFilePath}
+              onOpenFile={onOpenFile}
+              onPathRenamed={onPathRenamed}
+              onPathDeleted={onPathDeleted}
+              onRevealInTerminal={onRevealInTerminal}
+              onAttachToAgent={onAttachToAgent}
+              onOpenMarkdownPreview={onOpenMarkdownPreview}
+            />
+          )}
+        </div>
+
+        <HostDialog
+          open={creating}
+          host={null}
+          onOpenChange={setCreating}
+        />
+        <HostDialog
+          open={editing !== null}
+          host={editing}
+          onOpenChange={(open) => {
+            if (!open) setEditing(null);
+          }}
         />
       </div>
+    );
+  },
+);
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {filtered.length === 0 ? (
-          <Empty className="h-full border-0 p-6">
-            <EmptyMedia variant="icon">
-              <HugeiconsIcon icon={ServerStack02Icon} strokeWidth={2} />
-            </EmptyMedia>
-            <EmptyContent>
-              <EmptyTitle className="text-sm">
-                {hosts.length === 0 ? "No hosts" : "No matches"}
-              </EmptyTitle>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-lg"
-                onClick={() => setCreating(true)}
-              >
-                <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} />
-                New Host
-              </Button>
-            </EmptyContent>
-          </Empty>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {filtered.map((host) => (
-              <HostRow
-                key={host.id}
-                host={host}
-                onOpenSsh={onOpenSsh}
-                onOpenSftp={onOpenSftp}
-                onEdit={() => setEditing(host)}
-                onDelete={() => {
-                  if (window.confirm(`Delete "${host.name}"?`)) {
-                    remove(host.id);
-                    void clearHostPassword(host.id);
-                  }
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <HostDialog
-        open={creating}
-        host={null}
-        onOpenChange={setCreating}
-      />
-      <HostDialog
-        open={editing !== null}
-        host={editing}
-        onOpenChange={(open) => {
-          if (!open) setEditing(null);
-        }}
-      />
-    </div>
-  );
+function readSelectedSource(): SourceValue {
+  try {
+    const stored = window.localStorage.getItem(SOURCE_STORAGE_KEY);
+    if (stored === "local" || stored?.startsWith("host:")) {
+      return stored as SourceValue;
+    }
+  } catch {
+    // ignore
+  }
+  return "local";
 }
 
-function HostRow({
-  host,
-  onOpenSsh,
-  onOpenSftp,
-  onEdit,
-  onDelete,
-}: {
-  host: HostProfile;
-  onOpenSsh: (host: HostProfile) => void;
-  onOpenSftp: (host: HostProfile) => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const target = host.username ? `${host.username}@${host.hostname}` : host.hostname;
-  return (
-    <div
-      className={cn(
-        "group flex min-h-14 items-center gap-2 rounded-lg px-2 py-2",
-        "text-left hover:bg-foreground/[0.045]",
-      )}
-    >
-      <button
-        type="button"
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left outline-none"
-        onClick={() => onOpenSsh(host)}
-        onDoubleClick={() => onOpenSftp(host)}
-      >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-background/70 text-muted-foreground ring-1 ring-border/60">
-          <HugeiconsIcon icon={ServerStack02Icon} size={17} strokeWidth={2} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-foreground">
-            {host.name}
-          </span>
-          <span className="block truncate text-xs text-muted-foreground">
-            {target}
-            {host.port !== 22 ? `:${host.port}` : ""}
-          </span>
-        </span>
-      </button>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          className="rounded-md"
-          title="SSH"
-          onClick={() => onOpenSsh(host)}
-        >
-          <HugeiconsIcon
-            icon={ComputerTerminal02Icon}
-            size={13}
-            strokeWidth={2}
-          />
-        </Button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          className="rounded-md"
-          title="SFTP"
-          onClick={() => onOpenSftp(host)}
-        >
-          <HugeiconsIcon icon={FolderTransferIcon} size={13} strokeWidth={2} />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              className="rounded-md"
-              title="More"
-            >
-              <HugeiconsIcon
-                icon={MoreHorizontalIcon}
-                size={13}
-                strokeWidth={2}
-              />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-36">
-            <DropdownMenuItem onSelect={onEdit}>
-              <HugeiconsIcon icon={PencilEdit02Icon} size={14} strokeWidth={2} />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-              <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={2} />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-  );
+function sourceForHost(id: string): SourceValue {
+  return `host:${id}`;
 }
 
 function HostDialog({
@@ -303,7 +350,9 @@ function HostDialog({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!canSave || saving) return;
-    const nextHost = host ? { ...draft, id: host.id } : { ...draft, id: newHostId() };
+    const nextHost = host
+      ? { ...draft, id: host.id }
+      : { ...draft, id: newHostId() };
     setSaving(true);
     void (async () => {
       try {

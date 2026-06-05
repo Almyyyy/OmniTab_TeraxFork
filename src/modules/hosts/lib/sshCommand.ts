@@ -17,6 +17,10 @@ export function buildSshCommand(host: HostProfile): string {
   return args.join(" ");
 }
 
+export function isSshPasswordPrompt(buffer: string): boolean {
+  return /(?:^|[\r\n])[^\r\n]*password[^\r\n]*:\s*$/i.test(buffer);
+}
+
 export function sftpConfigForHost(
   host: HostProfile,
   password?: string | null,

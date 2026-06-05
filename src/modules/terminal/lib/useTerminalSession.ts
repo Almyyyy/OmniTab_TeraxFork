@@ -9,7 +9,7 @@ import {
   registerCwdHandler,
   registerPromptTracker,
 } from "./osc-handlers";
-import { openPty, type PtySession } from "./pty-bridge";
+import { attachPty, openPty, type PtySession } from "./pty-bridge";
 import {
   acquireSlot,
   applyBackgroundActive,
@@ -36,6 +36,7 @@ type Session = {
   pty: PtySession | null;
   ptyOpening: boolean;
   initialCwd: string | undefined;
+  initialPtyId: number | null;
   lastCwd: string | null;
   pendingExit: number | null;
   shellExited: boolean;
@@ -77,7 +78,10 @@ function markSessionReady(leafId: number): void {
   }
 }
 
-export function whenSessionReady(leafId: number, timeoutMs = 4000): Promise<void> {
+export function whenSessionReady(
+  leafId: number,
+  timeoutMs = 4000,
+): Promise<void> {
   if (readyLeaves.has(leafId)) return Promise.resolve();
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -159,14 +163,24 @@ configureRendererPool({
   },
 });
 
-function ensureSession(leafId: number, initialCwd?: string): Session {
+function ensureSession(
+  leafId: number,
+  initialCwd?: string,
+  initialPtyId?: number,
+): Session {
   const existing = sessions.get(leafId);
-  if (existing) return existing;
+  if (existing) {
+    if (existing.initialPtyId === null && initialPtyId !== undefined) {
+      existing.initialPtyId = initialPtyId;
+    }
+    return existing;
+  }
 
   const session: Session = {
     pty: null,
     ptyOpening: false,
     initialCwd,
+    initialPtyId: initialPtyId ?? null,
     lastCwd: null,
     pendingExit: null,
     shellExited: false,
@@ -225,6 +239,24 @@ async function openPtyForSession(
     },
     cwd,
   );
+}
+
+async function attachPtyForSession(
+  leafId: number,
+  s: Session,
+  ptyId: number,
+): Promise<PtySession> {
+  return attachPty(ptyId, {
+    onData: (bytes) => deliverPtyBytes(leafId, bytes),
+    onExit: (code) => {
+      s.shellExited = true;
+      s.pty = null;
+      const slot = getSlotForLeaf(leafId);
+      if (slot) slot.term.options.disableStdin = true;
+      if (s.callbacks.onExit) s.callbacks.onExit(code);
+      else s.pendingExit = code;
+    },
+  });
 }
 
 function bindLeafToSlot(leafId: number, s: Session): void {
@@ -298,7 +330,14 @@ function attachSession(
 
   if (!s.pty && !s.ptyOpening && !s.shellExited) {
     s.ptyOpening = true;
-    openPtyForSession(leafId, s, s.initialCwd)
+    const open =
+      s.initialPtyId !== null
+        ? attachPtyForSession(leafId, s, s.initialPtyId).catch((e) => {
+            console.error("[omnitab] attachPty failed:", e);
+            return openPtyForSession(leafId, s, s.initialCwd);
+          })
+        : openPtyForSession(leafId, s, s.initialCwd);
+    open
       .then((pty) => {
         s.ptyOpening = false;
         if (s.disposed) {
@@ -362,15 +401,48 @@ export async function respawnSession(
   if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
 }
 
-export async function leafHasForegroundProcess(leafId: number): Promise<boolean> {
+export async function leafHasForegroundProcess(
+  leafId: number,
+): Promise<boolean> {
   const s = sessions.get(leafId);
   if (!s?.pty || s.shellExited) return false;
   try {
-    const result = await invoke<boolean>("pty_has_foreground_process", { id: s.pty.id });
+    const result = await invoke<boolean>("pty_has_foreground_process", {
+      id: s.pty.id,
+    });
     return result;
   } catch (e) {
-    console.error("[omnitab] pty_has_foreground_process failed for leaf", leafId, e);
+    console.error(
+      "[omnitab] pty_has_foreground_process failed for leaf",
+      leafId,
+      e,
+    );
     return false;
+  }
+}
+
+export function getSessionPtyId(leafId: number): number | null {
+  return sessions.get(leafId)?.pty?.id ?? null;
+}
+
+export function detachSessionForTransfer(leafId: number): void {
+  const s = sessions.get(leafId);
+  if (!s) return;
+  s.disposed = true;
+  unbindLeafFromSlot(leafId, s);
+  s.callbacks = {};
+  s.container = null;
+  s.snapshot = null;
+  s.pty = null;
+  sessions.delete(leafId);
+  readyLeaves.delete(leafId);
+  const waiters = readyWaiters.get(leafId);
+  if (waiters) {
+    readyWaiters.delete(leafId);
+    for (const w of waiters) {
+      clearTimeout(w.timer);
+      w.resolve();
+    }
   }
 }
 
@@ -400,6 +472,7 @@ type Options = {
   visible: boolean;
   focused?: boolean;
   initialCwd?: string;
+  initialPtyId?: number;
   onSearchReady?: (addon: SearchAddon) => void;
   onExit?: (code: number) => void;
   onCwd?: (cwd: string) => void;
@@ -411,6 +484,7 @@ export function useTerminalSession({
   visible,
   focused = true,
   initialCwd,
+  initialPtyId,
   onSearchReady,
   onExit,
   onCwd,
@@ -420,7 +494,7 @@ export function useTerminalSession({
 
   useEffect(() => {
     let cancelled = false;
-    const s = ensureSession(leafId, initialCwd);
+    const s = ensureSession(leafId, initialCwd, initialPtyId);
     s.ready.then(() => {
       if (cancelled || s.disposed) return;
       const node = container.current;
@@ -436,7 +510,7 @@ export function useTerminalSession({
       cancelled = true;
       detachSession(leafId);
     };
-  }, [leafId, container, initialCwd]);
+  }, [leafId, container, initialCwd, initialPtyId]);
 
   const fontSize = usePreferencesStore((p) => p.terminalFontSize);
   const zoomLevel = usePreferencesStore((p) => p.zoomLevel);

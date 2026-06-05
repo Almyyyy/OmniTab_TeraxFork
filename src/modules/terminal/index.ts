@@ -2,7 +2,9 @@ export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";
 export {
   clearFocusedTerminal,
+  detachSessionForTransfer,
   disposeSession,
+  getSessionPtyId,
   leafHasForegroundProcess,
   leafIdForPty,
   respawnSession,

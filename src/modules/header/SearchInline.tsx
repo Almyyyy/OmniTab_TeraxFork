@@ -1,9 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KEY_SEP } from "@/lib/platform";
 import type { EditorPaneHandle } from "@/modules/editor";
-import { usePreferencesStore } from "@/modules/settings/preferences";
-import { getBindingTokens, SHORTCUTS } from "@/modules/shortcuts/shortcuts";
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { SearchAddon } from "@xterm/addon-search";
@@ -13,7 +10,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -58,26 +54,10 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
       el.focus();
     }, []);
 
-    const userShortcuts = usePreferencesStore((s) => s.shortcuts);
-
-    const shortcutText = useMemo(() => {
-      const s = SHORTCUTS.find((s) => s.id === "search.focus");
-      if (!s) return "";
-      const bindings = userShortcuts["search.focus"] || s.defaultBindings;
-      if (!bindings || bindings.length === 0) return "";
-      const tokens = getBindingTokens(bindings[0]);
-      return tokens.join(KEY_SEP);
-    }, [userShortcuts]);
-
     const baseLabel = target?.kind === "git-history" ? "Git search" : "Search";
 
-    const placeholder = useMemo(() => {
-      return shortcutText ? `${baseLabel} (${shortcutText})` : baseLabel;
-    }, [baseLabel, shortcutText]);
-
-    const tooltipTitle = useMemo(() => {
-      return shortcutText ? `${baseLabel} (${shortcutText})` : baseLabel;
-    }, [baseLabel, shortcutText]);
+    const placeholder = baseLabel;
+    const tooltipTitle = baseLabel;
 
     const expanded = !compact || openInCompact;
 

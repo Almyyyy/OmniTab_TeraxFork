@@ -8,7 +8,6 @@ export type ShortcutId =
   | "commandPalette.open"
   | "window.new"
   | "tab.new"
-  | "tab.newPrivate"
   | "tab.newPreview"
   | "tab.newEditor"
   | "tab.close"
@@ -21,7 +20,6 @@ export type ShortcutId =
   | "pane.focusPrev"
   | "pane.source"
   | "terminal.clear"
-  | "search.focus"
   | "explorer.search"
   | "explorer.focus"
   | "view.zoomIn"
@@ -85,7 +83,7 @@ export const SHORTCUTS: Shortcut[] = [
     id: "window.new",
     label: "New window",
     group: "General",
-    defaultBindings: [{ [MOD_PROP]: true, key: "n" }],
+    defaultBindings: [{ [MOD_PROP]: true, key: "w" }],
   },
   {
     id: "tab.new",
@@ -94,14 +92,8 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "t" }],
   },
   {
-    id: "tab.newPrivate",
-    label: "New private terminal",
-    group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "r" }],
-  },
-  {
     id: "tab.newPreview",
-    label: "New preview tab",
+    label: "New browser tab",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, key: "p" }],
   },
@@ -115,7 +107,7 @@ export const SHORTCUTS: Shortcut[] = [
     id: "tab.close",
     label: "Close tab or pane",
     group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "w" }],
+    defaultBindings: [],
   },
   {
     id: "pane.splitRight",
@@ -140,7 +132,7 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Focus previous pane",
     group: "Panes",
     defaultBindings: [{ [MOD_PROP]: true, key: "[" }],
-  },  
+  },
   {
     id: "pane.source",
     label: "Toggle source panel",
@@ -179,12 +171,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Search files",
     group: "Search",
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "f" }],
-  },
-  {
-    id: "search.focus",
-    label: "Find in terminal",
-    group: "Search",
-    defaultBindings: [{ [MOD_PROP]: true, key: "f" }],
   },
   {
     id: "ai.toggle",
@@ -284,7 +270,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
 export function matchBinding(
   e: KeyboardEvent,
   binding: KeyBinding,
-  id?: ShortcutId
+  id?: ShortcutId,
 ): boolean {
   const eventKey = e.key.toLowerCase();
   const bindingKey = binding.key.toLowerCase();
