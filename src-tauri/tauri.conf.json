@@ -74,7 +74,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCQUJGRDhBQjYwRTM0NjkKUldScE5BNjJpdjJyT3dIN0dqbUpHaDA4QW1GaDVmTTllRXdZVk96dFNTRUZ3Y2hiVGszYjFqRloK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE1MkZCRUZGOTg2MzkwREYKUldUZmtHT1kvNzR2RlN0amdKME9hOTNmOFBBOWNmLzdlSXQyQU8xYUJleUczd3BkSzFzbnRGTzIK",
       "endpoints": [
         "https://github.com/OmniTabOrg/OmniTab_TeraxFork/releases/latest/download/latest.json"
       ]
