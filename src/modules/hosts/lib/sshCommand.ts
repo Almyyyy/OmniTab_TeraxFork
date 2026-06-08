@@ -1,6 +1,13 @@
 import { quoteShellArg } from "@/lib/shellQuote";
 import type { HostProfile, SftpHostConfig } from "@/modules/hosts/types";
 
+const legacyRsaOptions = [
+  "-o",
+  "HostKeyAlgorithms=+ssh-rsa",
+  "-o",
+  "PubkeyAcceptedKeyTypes=+ssh-rsa",
+];
+
 export function sshTarget(host: Pick<HostProfile, "hostname" | "username">): string {
   const hostname = host.hostname.trim();
   const username = host.username.trim();
@@ -8,7 +15,7 @@ export function sshTarget(host: Pick<HostProfile, "hostname" | "username">): str
 }
 
 export function buildSshCommand(host: HostProfile): string {
-  const args = ["ssh"];
+  const args = ["ssh", ...legacyRsaOptions];
   if (host.port !== 22) args.push("-p", String(host.port));
   if (host.authMode === "key" && host.keyPath.trim()) {
     args.push("-i", quoteShellArg(host.keyPath.trim()));

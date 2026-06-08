@@ -24,8 +24,10 @@ describe("sshCommand", () => {
     expect(sshTarget({ ...base, username: "" })).toBe("example.com");
   });
 
-  it("omits default options", () => {
-    expect(buildSshCommand(base)).toBe("ssh 'deploy@example.com'");
+  it("includes legacy RSA compatibility options", () => {
+    expect(buildSshCommand(base)).toBe(
+      "ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa 'deploy@example.com'",
+    );
   });
 
   it("quotes key paths and non-default ports", () => {
@@ -36,7 +38,9 @@ describe("sshCommand", () => {
         authMode: "key",
         keyPath: "/Users/me/.ssh/prod key",
       }),
-    ).toBe("ssh -p 2222 -i '/Users/me/.ssh/prod key' 'deploy@example.com'");
+    ).toBe(
+      "ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -p 2222 -i '/Users/me/.ssh/prod key' 'deploy@example.com'",
+    );
   });
 
   it("includes passwords only for password sftp profiles", () => {

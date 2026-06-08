@@ -5,6 +5,11 @@ use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
+const LEGACY_RSA_OPTIONS: [&str; 2] = [
+    "HostKeyAlgorithms=+ssh-rsa",
+    "PubkeyAcceptedKeyTypes=+ssh-rsa",
+];
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SftpHostConfig {
@@ -118,6 +123,9 @@ fn run_sftp_blocking(config: SftpHostConfig, commands: Vec<String>) -> Result<St
     let config = normalize_config(config)?;
     let mut command = Command::new("sftp");
     command.arg("-q").arg("-P").arg(config.port.to_string());
+    for option in LEGACY_RSA_OPTIONS {
+        command.arg("-o").arg(option);
+    }
 
     let _askpass = if let Some(password) = config.password {
         command
@@ -244,8 +252,11 @@ fn write_askpass_helper(path: &Path) -> Result<(), String> {
 fn write_askpass_helper(path: &Path) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
 
-    std::fs::write(path, "#!/bin/sh\nprintf '%s\\n' \"$OMNITAB_SFTP_PASSWORD\"\n")
-        .map_err(|e| format!("failed to write askpass helper: {e}"))?;
+    std::fs::write(
+        path,
+        "#!/bin/sh\nprintf '%s\\n' \"$OMNITAB_SFTP_PASSWORD\"\n",
+    )
+    .map_err(|e| format!("failed to write askpass helper: {e}"))?;
     let mut permissions = std::fs::metadata(path)
         .map_err(|e| format!("failed to stat askpass helper: {e}"))?
         .permissions();
@@ -398,5 +409,16 @@ drwxr-xr-x    5 deploy deploy     4096 Jan 02 12:30 releases
     fn rejects_newline_paths() {
         let err = validate_path("remote path", "safe\nrm *".to_string()).unwrap_err();
         assert!(err.contains("invalid character"));
+    }
+
+    #[test]
+    fn enables_legacy_rsa_ssh_compatibility() {
+        assert_eq!(
+            LEGACY_RSA_OPTIONS,
+            [
+                "HostKeyAlgorithms=+ssh-rsa",
+                "PubkeyAcceptedKeyTypes=+ssh-rsa"
+            ]
+        );
     }
 }
