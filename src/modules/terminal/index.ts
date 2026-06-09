@@ -1,5 +1,5 @@
 export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
-export { TerminalStack } from "./TerminalStack";
+export { TerminalHostToolbar, TerminalStack } from "./TerminalStack";
 export {
   clearFocusedTerminal,
   detachSessionForTransfer,
@@ -19,5 +19,4 @@ export {
   leafIds,
   type PaneId,
   type PaneNode,
-  type SplitDir,
 } from "./lib/panes";

@@ -44,55 +44,6 @@ export function setLeafCwd(n: PaneNode, id: PaneId, cwd: string): PaneNode {
 }
 
 /**
- * Insert a new leaf next to `targetId` in direction `dir`.
- *
- * If the target's enclosing split already runs in `dir`, the new leaf is
- * appended as a sibling there (avoids nested same-direction splits — keeps
- * the tree shallow and the resize handles aligned).
- */
-export function splitLeaf(
-  tree: PaneNode,
-  targetId: PaneId,
-  newSplitId: PaneId,
-  newLeafId: PaneId,
-  dir: SplitDir,
-  newCwd?: string,
-): PaneNode {
-  if (tree.kind === "split" && tree.dir === dir) {
-    const idx = tree.children.findIndex(
-      (c) => c.kind === "leaf" && c.id === targetId,
-    );
-    if (idx >= 0) {
-      const newLeaf: PaneNode = { kind: "leaf", id: newLeafId, cwd: newCwd };
-      return {
-        ...tree,
-        children: [
-          ...tree.children.slice(0, idx + 1),
-          newLeaf,
-          ...tree.children.slice(idx + 1),
-        ],
-      };
-    }
-  }
-  if (isLeaf(tree)) {
-    if (tree.id !== targetId) return tree;
-    const newLeaf: PaneNode = { kind: "leaf", id: newLeafId, cwd: newCwd };
-    return {
-      kind: "split",
-      id: newSplitId,
-      dir,
-      children: [tree, newLeaf],
-    };
-  }
-  return {
-    ...tree,
-    children: tree.children.map((c) =>
-      splitLeaf(c, targetId, newSplitId, newLeafId, dir, newCwd),
-    ),
-  };
-}
-
-/**
  * Remove a leaf and collapse single-child splits left in its wake. Returns
  * `null` when the entire subtree is gone.
  */

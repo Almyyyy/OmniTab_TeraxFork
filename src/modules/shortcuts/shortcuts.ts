@@ -14,8 +14,6 @@ export type ShortcutId =
   | "tab.next"
   | "tab.prev"
   | "tab.selectByIndex"
-  | "pane.splitRight"
-  | "pane.splitDown"
   | "pane.focusNext"
   | "pane.focusPrev"
   | "pane.source"
@@ -108,18 +106,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Close tab or pane",
     group: "Tabs",
     defaultBindings: [],
-  },
-  {
-    id: "pane.splitRight",
-    label: "Split pane right",
-    group: "Panes",
-    defaultBindings: [{ [MOD_PROP]: true, key: "d" }],
-  },
-  {
-    id: "pane.splitDown",
-    label: "Split pane down",
-    group: "Panes",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "d" }],
   },
   {
     id: "pane.focusNext",

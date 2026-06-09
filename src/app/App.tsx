@@ -49,9 +49,14 @@ import {
 } from "@/modules/git-history";
 import {
   buildSshCommand,
+  HostDialog,
   HostsPanel,
   isSshPasswordPrompt,
+  readSelectedSource,
+  sourceForHost,
   useHostsStore,
+  writeSelectedSource,
+  type HostSourceValue,
   type HostProfile,
 } from "@/modules/hosts";
 import { getHostPassword } from "@/modules/hosts/lib/passwords";
@@ -118,6 +123,7 @@ import {
   leafHasForegroundProcess,
   leafIds,
   respawnSession,
+  TerminalHostToolbar,
   TerminalStack,
   whenSessionReady,
   writeToSession,
@@ -388,7 +394,6 @@ export default function App() {
     setLeafCwd,
     focusPane,
     focusNextPaneInTab,
-    splitActivePane,
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
@@ -461,34 +466,22 @@ export default function App() {
     }
   }, []);
   const toggleSidebar = useCallback(() => {
-    const p = sidebarRef.current;
-    if (!p) return;
-    if (p.getSize().asPercentage <= 0) {
-      setSidebarCollapsed(false);
-      p.resize(`${sidebarWidthRef.current}px`);
-    } else {
-      setSidebarCollapsed(true);
-      p.collapse();
-    }
+    setSidebarCollapsed((collapsed) => !collapsed);
   }, []);
   const cycleSidebarView = useCallback(
     (view: SidebarViewId) => {
-      const panel = sidebarRef.current;
-      const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
-      if (collapsed) {
+      if (sidebarCollapsed) {
         setSidebarCollapsed(false);
-        if (panel) panel.resize(`${sidebarWidthRef.current}px`);
         if (view !== sidebarView) persistSidebarView(view);
         return;
       }
       if (view === sidebarView) {
         setSidebarCollapsed(true);
-        panel?.collapse();
         return;
       }
       persistSidebarView(view);
     },
-    [persistSidebarView, sidebarView],
+    [persistSidebarView, sidebarCollapsed, sidebarView],
   );
   const persistSidebarWidth = useCallback((next: number) => {
     sidebarWidthRef.current = next;
@@ -514,10 +507,8 @@ export default function App() {
 
   const toggleExplorerFocus = useCallback(() => {
     const explorer = explorerRef.current;
-    const panel = sidebarRef.current;
-    const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
-    if (sidebarView !== "explorer" || collapsed) {
-      if (panel && collapsed) panel.resize(`${sidebarWidthRef.current}px`);
+    if (sidebarView !== "explorer" || sidebarCollapsed) {
+      if (sidebarCollapsed) setSidebarCollapsed(false);
       if (sidebarView !== "explorer") persistSidebarView("explorer");
       const active = document.activeElement;
       explorerReturnFocusRef.current =
@@ -542,7 +533,7 @@ export default function App() {
     explorerReturnFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
     explorer.focus();
-  }, [persistSidebarView, sidebarView]);
+  }, [persistSidebarView, sidebarCollapsed, sidebarView]);
 
   const [home, setHome] = useState<string | null>(null);
   const [pendingCloseTab, setPendingCloseTab] = useState<number | null>(null);
@@ -629,6 +620,10 @@ export default function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [newEditorOpen, setNewEditorOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [selectedHostSource, setSelectedHostSource] =
+    useState<HostSourceValue>(readSelectedSource);
+  const [creatingHost, setCreatingHost] = useState(false);
+  const [editingHost, setEditingHost] = useState<HostProfile | null>(null);
   const miniOpen = useChatStore((s) => s.mini.open);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
   const openMini = useChatStore((s) => s.openMini);
@@ -641,6 +636,8 @@ export default function App() {
   const setSelectedModelId = useChatStore((s) => s.setSelectedModelId);
   const setLive = useChatStore((s) => s.setLive);
   const respondToApproval = useChatStore((s) => s.respondToApproval);
+  const hosts = useHostsStore((s) => s.hosts);
+  const hostsHydrated = useHostsStore((s) => s.hydrated);
 
   useEffect(() => {
     if (activeSessionId) firePendingReviewForSession(activeSessionId);
@@ -2125,6 +2122,35 @@ export default function App() {
     [inheritedCwdForNewTab, newHostShellTab],
   );
 
+  const selectedHost = useMemo(
+    () =>
+      selectedHostSource === "local"
+        ? null
+        : (hosts.find(
+            (host) => sourceForHost(host.id) === selectedHostSource,
+          ) ?? null),
+    [hosts, selectedHostSource],
+  );
+
+  const selectHostSource = useCallback(
+    (source: HostSourceValue) => {
+      setSelectedHostSource(source);
+      writeSelectedSource(source);
+      if (source === "local") return;
+      const host = hosts.find((h) => sourceForHost(h.id) === source);
+      if (host) openHostShell(host);
+    },
+    [hosts, openHostShell],
+  );
+
+  useEffect(() => {
+    if (!hostsHydrated) return;
+    if (selectedHostSource === "local") return;
+    if (selectedHost) return;
+    setSelectedHostSource("local");
+    writeSelectedSource("local");
+  }, [hostsHydrated, selectedHost, selectedHostSource]);
+
   const sendCd = useCallback(
     (path: string) => {
       if (activeLeafId === null) return;
@@ -2316,15 +2342,6 @@ export default function App() {
     [newMarkdownTab],
   );
 
-  const splitActivePaneInActiveTab = useCallback(
-    (dir: "row" | "col") => {
-      const t = tabsRef.current.find((x) => x.id === activeId);
-      if (!t || t.kind !== "terminal") return;
-      splitActivePane(activeId, dir);
-    },
-    [activeId, splitActivePane],
-  );
-
   const handleCloseTabOrPane = useCallback(() => {
     const t = tabsRef.current.find((x) => x.id === activeId);
     if (t?.kind === "terminal" && leafIds(t.paneTree).length > 1) {
@@ -2443,8 +2460,6 @@ export default function App() {
       "tab.next": () => cycleTab(1),
       "tab.prev": () => cycleTab(-1),
       "tab.selectByIndex": (e) => selectByIndex(parseInt(e.key, 10) - 1),
-      "pane.splitRight": () => splitActivePaneInActiveTab("row"),
-      "pane.splitDown": () => splitActivePaneInActiveTab("col"),
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
       "pane.focusPrev": () => focusNextPaneInTab(activeId, -1),
       "pane.source": toggleSourceControl,
@@ -2471,7 +2486,6 @@ export default function App() {
       openNewTab,
       openPreviewTab,
       selectByIndex,
-      splitActivePaneInActiveTab,
       focusNextPaneInTab,
       toggleSourceControl,
       togglePanelAndFocus,
@@ -2640,8 +2654,6 @@ export default function App() {
         closeActiveTabOrPane: handleCloseTabOrPane,
         nextTab: () => cycleTab(1),
         previousTab: () => cycleTab(-1),
-        splitPaneRight: () => splitActivePaneInActiveTab("row"),
-        splitPaneDown: () => splitActivePaneInActiveTab("col"),
         focusNextPane: () => focusNextPaneInTab(activeId, 1),
         focusPreviousPane: () => focusNextPaneInTab(activeId, -1),
         focusExplorerSearch: () => explorerRef.current?.focusSearch(),
@@ -2661,7 +2673,6 @@ export default function App() {
       openPreviewTab,
       handleCloseTabOrPane,
       cycleTab,
-      splitActivePaneInActiveTab,
       focusNextPaneInTab,
       toggleSidebar,
       togglePanelAndFocus,
@@ -2780,7 +2791,7 @@ export default function App() {
     <div className="relative h-full min-h-0">
       <div
         className={cn(
-          "absolute inset-0 px-3 pt-2 pb-2",
+          "absolute inset-0",
           !isTerminalTab && "invisible pointer-events-none",
         )}
         aria-hidden={!isTerminalTab}
@@ -2793,8 +2804,6 @@ export default function App() {
           onCwd={handleTerminalCwd}
           onExit={handleLeafExit}
           onFocusLeaf={handleFocusLeaf}
-          onToggleSidebar={toggleSidebar}
-          onSplit={splitActivePaneInActiveTab}
         />
       </div>
       <div
@@ -2903,26 +2912,33 @@ export default function App() {
           )}
 
           <main className="zoom-content flex min-h-0 flex-1 flex-col">
+            {isTerminalTab ? (
+              <TerminalHostToolbar
+                onToggleSidebar={toggleSidebar}
+                hosts={hosts}
+                selectedHostSource={selectedHostSource}
+                selectedHost={selectedHost}
+                onSelectHostSource={selectHostSource}
+                onCreateHost={() => setCreatingHost(true)}
+                onEditHost={() => {
+                  if (selectedHost) setEditingHost(selectedHost);
+                }}
+              />
+            ) : null}
             <ResizablePanelGroup
               orientation="horizontal"
               className="min-h-0 flex-1"
             >
-              {isTerminalTab ? (
+              {isTerminalTab && !sidebarCollapsed ? (
                 <>
                   <ResizablePanel
                     id="sidebar"
                     panelRef={sidebarRef}
-                    defaultSize={
-                      sidebarCollapsed ? "0px" : `${sidebarWidthRef.current}px`
-                    }
+                    defaultSize={`${sidebarWidthRef.current}px`}
                     minSize={`${SIDEBAR_MIN_WIDTH}px`}
                     maxSize={`${SIDEBAR_MAX_WIDTH}px`}
-                    collapsible
-                    collapsedSize={0}
                     onResize={(size) => {
-                      const collapsed = size.inPixels <= 0;
-                      setSidebarCollapsed(collapsed);
-                      if (!collapsed) persistSidebarWidth(size.inPixels);
+                      persistSidebarWidth(size.inPixels);
                     }}
                   >
                     <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
@@ -2931,6 +2947,7 @@ export default function App() {
                           <HostsPanel
                             ref={explorerRef}
                             localRootPath={explorerRoot}
+                            selectedHost={selectedHost}
                             activeFilePath={explorerActiveFilePath}
                             onOpenFile={handleOpenFile}
                             onPathRenamed={handlePathRenamed}
@@ -3014,6 +3031,18 @@ export default function App() {
             onActivate={onActivateAgent}
           />
           <Toaster position="bottom-right" />
+          <HostDialog
+            open={creatingHost}
+            host={null}
+            onOpenChange={setCreatingHost}
+          />
+          <HostDialog
+            open={editingHost !== null}
+            host={editingHost}
+            onOpenChange={(open) => {
+              if (!open) setEditingHost(null);
+            }}
+          />
 
           {hasComposer ? (
             <>

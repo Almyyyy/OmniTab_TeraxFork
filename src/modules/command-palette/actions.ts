@@ -1,5 +1,5 @@
 import type { ShortcutId } from "@/modules/shortcuts";
-import { MAX_PANES_PER_TAB, type Tab } from "@/modules/tabs";
+import type { Tab } from "@/modules/tabs";
 import { leafIds } from "@/modules/terminal";
 import {
   ArrowLeft01Icon,
@@ -9,8 +9,6 @@ import {
   FileEditIcon,
   Globe02Icon,
   KeyboardIcon,
-  LayoutTwoColumnIcon,
-  LayoutTwoRowIcon,
   Search01Icon,
   Settings01Icon,
   SidebarLeftIcon,
@@ -55,8 +53,6 @@ export type CommandPaletteActionContext = {
   closeActiveTabOrPane: () => void;
   nextTab: () => void;
   previousTab: () => void;
-  splitPaneRight: () => void;
-  splitPaneDown: () => void;
   focusNextPane: () => void;
   focusPreviousPane: () => void;
   focusExplorerSearch: () => void;
@@ -77,11 +73,6 @@ export function createCommandPaletteActions(
     : 0;
   const onlyOneTab = ctx.tabs.length < 2;
   const noWorkspaceRoot = !ctx.explorerRoot && !ctx.home;
-  const splitPaneDisabledReason = !activeTerminalTab
-    ? "No terminal tab"
-    : activePaneCount >= MAX_PANES_PER_TAB
-      ? "Pane limit"
-      : undefined;
   const focusPaneDisabledReason = !activeTerminalTab
     ? "No terminal tab"
     : activePaneCount < 2
@@ -174,26 +165,6 @@ export function createCommandPaletteActions(
       shortcutId: "tab.prev",
       disabledReason: onlyOneTab ? "Only one tab" : undefined,
       run: ctx.previousTab,
-    },
-    {
-      id: "pane.splitRight",
-      label: "Split pane right",
-      group: "Panes",
-      keywords: ["terminal", "pane", "split", "right", "column"],
-      icon: LayoutTwoColumnIcon,
-      shortcutId: "pane.splitRight",
-      disabledReason: splitPaneDisabledReason,
-      run: ctx.splitPaneRight,
-    },
-    {
-      id: "pane.splitDown",
-      label: "Split pane down",
-      group: "Panes",
-      keywords: ["terminal", "pane", "split", "down", "row"],
-      icon: LayoutTwoRowIcon,
-      shortcutId: "pane.splitDown",
-      disabledReason: splitPaneDisabledReason,
-      run: ctx.splitPaneDown,
     },
     {
       id: "pane.focusNext",

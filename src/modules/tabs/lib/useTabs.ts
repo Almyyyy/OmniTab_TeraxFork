@@ -8,14 +8,9 @@ import {
   removeLeaf,
   setLeafCwd as setLeafCwdInTree,
   siblingLeafOf,
-  splitLeaf,
   type PaneNode,
-  type SplitDir,
 } from "@/modules/terminal/lib/panes";
 import { disposeSession } from "@/modules/terminal/lib/useTerminalSession";
-
-// Matches the renderer slot pool size — over this we'd evict an active leaf.
-export const MAX_PANES_PER_TAB = 4;
 
 export type TerminalTab = {
   id: number;
@@ -846,33 +841,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     );
   }, []);
 
-  /** Split the active leaf of `tabId` along `dir`. Returns the new leaf id. */
-  const splitActivePane = useCallback(
-    (tabId: number, dir: SplitDir): number | null => {
-      let newLeafId: number | null = null;
-      setTabs((curr) =>
-        curr.map((t) => {
-          if (t.id !== tabId || t.kind !== "terminal") return t;
-          if (leafIds(t.paneTree).length >= MAX_PANES_PER_TAB) return t;
-          const splitId = nextIdRef.current++;
-          const leafId = nextIdRef.current++;
-          newLeafId = leafId;
-          const paneTree = splitLeaf(
-            t.paneTree,
-            t.activeLeafId,
-            splitId,
-            leafId,
-            dir,
-            t.cwd,
-          );
-          return { ...t, paneTree, activeLeafId: leafId };
-        }),
-      );
-      return newLeafId;
-    },
-    [],
-  );
-
   const closePaneByLeaf = useCallback((leafId: number): void => {
     let didRemove = false;
     setTabs((curr) => {
@@ -990,7 +958,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setLeafCwd,
     focusPane,
     focusNextPaneInTab,
-    splitActivePane,
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
