@@ -17,8 +17,8 @@ import {
   StopCircleIcon,
   ZoomInAreaIcon,
   ZoomOutAreaIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon, type IconComponent } from "@/components/icons";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   forwardRef,
@@ -159,7 +159,7 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
                 title="Browser options"
                 className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
               >
-                <HugeiconsIcon
+                <AppIcon
                   icon={MoreHorizontalCircle01Icon}
                   size={14}
                   strokeWidth={1.75}
@@ -168,7 +168,7 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-48">
               <DropdownMenuItem onSelect={onZoomIn}>
-                <HugeiconsIcon
+                <AppIcon
                   icon={ZoomInAreaIcon}
                   size={14}
                   strokeWidth={1.75}
@@ -179,7 +179,7 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onZoomOut}>
-                <HugeiconsIcon
+                <AppIcon
                   icon={ZoomOutAreaIcon}
                   size={14}
                   strokeWidth={1.75}
@@ -192,7 +192,7 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onClearData}>
-                <HugeiconsIcon
+                <AppIcon
                   icon={Delete02Icon}
                   size={14}
                   strokeWidth={1.75}
@@ -228,7 +228,7 @@ function IconButton({
   title: string;
   disabled?: boolean;
   onClick: () => void;
-  icon: IconSvgElement;
+  icon: IconComponent;
 }) {
   return (
     <Button
@@ -240,7 +240,7 @@ function IconButton({
       disabled={disabled}
       className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
     >
-      <HugeiconsIcon icon={icon} size={14} strokeWidth={1.75} />
+      <AppIcon icon={icon} size={14} strokeWidth={1.75} />
     </Button>
   );
 }

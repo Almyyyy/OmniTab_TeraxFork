@@ -3,8 +3,8 @@ import { WindowControls } from "@/components/WindowControls";
 import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import { TabBar, type Tab } from "@/modules/tabs";
 import { NotificationBell } from "@/modules/agents";
-import { Settings01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Settings01Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   useCallback,
@@ -110,7 +110,7 @@ export function Header({
       onClick={onOpenSettings}
       title="Settings"
     >
-      <HugeiconsIcon icon={Settings01Icon} size={15} strokeWidth={1.75} />
+      <AppIcon icon={Settings01Icon} size={15} strokeWidth={1.75} />
     </Button>
   );
 

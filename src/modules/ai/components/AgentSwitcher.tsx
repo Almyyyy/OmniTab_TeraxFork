@@ -18,8 +18,8 @@ import {
   ShieldUserIcon,
   SparklesIcon,
   Tick02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import type { AgentIconId } from "../lib/agents";
 import { useAgentsStore } from "../store/agentsStore";
 
@@ -59,9 +59,9 @@ export function AgentSwitcher({ isMiniWindow }: { isMiniWindow?: boolean }) {
           )}
           title={`Agent: ${active.name}`}
         >
-          <HugeiconsIcon icon={ActiveIcon} size={11} strokeWidth={1.75} />
+          <AppIcon icon={ActiveIcon} size={11} strokeWidth={1.75} />
           <span className="max-w-[7rem] truncate">{active.name}</span>
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowDown01Icon}
             size={10}
             strokeWidth={2}
@@ -84,7 +84,7 @@ export function AgentSwitcher({ isMiniWindow }: { isMiniWindow?: boolean }) {
                 a.id === activeId && "bg-accent/40",
               )}
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={Icon}
                 size={13}
                 strokeWidth={1.75}
@@ -102,7 +102,7 @@ export function AgentSwitcher({ isMiniWindow }: { isMiniWindow?: boolean }) {
                 </span>
               </span>
               {a.id === activeId ? (
-                <HugeiconsIcon
+                <AppIcon
                   icon={Tick02Icon}
                   size={12}
                   strokeWidth={2}
@@ -129,7 +129,7 @@ export function AgentSwitcher({ isMiniWindow }: { isMiniWindow?: boolean }) {
                     a.id === activeId && "bg-accent/40",
                   )}
                 >
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={Icon}
                     size={13}
                     strokeWidth={1.75}
@@ -144,7 +144,7 @@ export function AgentSwitcher({ isMiniWindow }: { isMiniWindow?: boolean }) {
                     ) : null}
                   </span>
                   {a.id === activeId ? (
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={Tick02Icon}
                       size={12}
                       strokeWidth={2}
@@ -161,7 +161,7 @@ export function AgentSwitcher({ isMiniWindow }: { isMiniWindow?: boolean }) {
           onSelect={() => void openSettingsWindow("agents")}
           className="gap-2 text-[12px] text-muted-foreground"
         >
-          <HugeiconsIcon icon={Settings01Icon} size={12} strokeWidth={1.75} />
+          <AppIcon icon={Settings01Icon} size={12} strokeWidth={1.75} />
           Manage agents…
         </DropdownMenuItem>
       </DropdownMenuContent>

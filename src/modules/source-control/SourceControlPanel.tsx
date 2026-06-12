@@ -50,8 +50,8 @@ import {
   GitBranchIcon,
   Refresh01Icon,
   RemoveSquareIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   memo,
@@ -420,7 +420,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 pb-2.5 pt-3">
           <div className="flex min-w-0 items-center gap-1.5">
             <div className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-[11.5px] font-medium leading-none text-foreground transition-colors hover:bg-foreground/10">
-              <HugeiconsIcon
+              <AppIcon
                 icon={FolderGitTwoIcon}
                 size={12}
                 strokeWidth={1.9}
@@ -432,7 +432,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
               <div className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold tabular-nums leading-none text-muted-foreground">
                 {scm.status.ahead > 0 ? (
                   <span className="inline-flex items-center gap-0.5 rounded-md border border-border/60 px-1 py-0.5">
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={ArrowUp01Icon}
                       size={9}
                       strokeWidth={2.2}
@@ -442,7 +442,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                 ) : null}
                 {scm.status.behind > 0 ? (
                   <span className="inline-flex items-center gap-0.5 rounded-md border border-border/60 px-1 py-0.5">
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={ArrowDown01Icon}
                       size={9}
                       strokeWidth={2.2}
@@ -468,7 +468,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
               {fetchBusy ? (
                 <Spinner className="size-3" />
               ) : (
-                <HugeiconsIcon
+                <AppIcon
                   icon={FolderCloudIcon}
                   size={14}
                   strokeWidth={1.85}
@@ -494,7 +494,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
               {pullBusy ? (
                 <Spinner className="size-3" />
               ) : (
-                <HugeiconsIcon
+                <AppIcon
                   icon={Download01Icon}
                   size={14}
                   strokeWidth={1.9}
@@ -510,7 +510,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
               {isRefreshing ? (
                 <Spinner className="size-3.5" />
               ) : (
-                <HugeiconsIcon
+                <AppIcon
                   icon={Refresh01Icon}
                   size={14}
                   strokeWidth={1.9}
@@ -527,14 +527,14 @@ export const SourceControlPanel = memo(function SourceControlPanel({
             onClick={() => onOpenGitGraph()}
             className="group flex shrink-0 cursor-pointer items-center gap-2 border-b border-border/40 px-3 py-2 text-left text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={GitBranchIcon}
               size={13}
               strokeWidth={1.85}
               className="shrink-0"
             />
             <span className="flex-1 text-[12px] font-medium">Commit Graph</span>
-            <HugeiconsIcon
+            <AppIcon
               icon={ArrowRight01Icon}
               size={12}
               strokeWidth={2}
@@ -614,7 +614,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                         {scm.actionBusy === "generate-message" ? (
                           <Spinner className="size-3" />
                         ) : (
-                          <HugeiconsIcon
+                          <AppIcon
                             icon={AiContentGenerator02Icon}
                             size={14}
                             strokeWidth={1.75}
@@ -827,7 +827,7 @@ function CleanTreeHint({ repoLabel }: { repoLabel: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 px-4 text-center">
       <div className="flex size-8 items-center justify-center rounded-full border border-border/55 text-muted-foreground">
-        <HugeiconsIcon
+        <AppIcon
           icon={CheckmarkCircle01Icon}
           size={16}
           strokeWidth={1.6}
@@ -873,7 +873,7 @@ const RowRenderer = memo(function RowRenderer(props: RowRendererProps) {
 function DivergedBanner() {
   return (
     <div className="mx-2 mt-1 flex h-7 items-center gap-1.5 rounded-md border border-border/60 bg-foreground/[0.04] px-2 text-[10.5px] leading-none text-muted-foreground">
-      <HugeiconsIcon
+      <AppIcon
         icon={Alert02Icon}
         size={11}
         strokeWidth={1.9}
@@ -1024,7 +1024,7 @@ const EntryRow = memo(function EntryRow({
                 {isDiscardBusy ? (
                   <Spinner className="size-3" />
                 ) : (
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={RemoveSquareIcon}
                     size={11}
                     strokeWidth={1.9}

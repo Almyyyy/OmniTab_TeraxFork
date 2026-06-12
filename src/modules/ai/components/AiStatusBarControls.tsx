@@ -39,8 +39,8 @@ import {
   StarIcon,
   StopCircleIcon,
   Tick01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
 import {
@@ -122,7 +122,7 @@ export function AiStatusBarControls() {
         onClick={() => fileInputRef.current?.click()}
         disabled={c.isBusy}
       >
-        <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={2} />
+        <AppIcon icon={Add01Icon} size={13} strokeWidth={2} />
       </IconBtn>
 
       {c.voice.supported && (
@@ -150,7 +150,7 @@ export function AiStatusBarControls() {
           ) : c.voice.transcribing ? (
             <Spinner className="size-3" />
           ) : (
-            <HugeiconsIcon icon={Mic01Icon} size={13} strokeWidth={1.75} />
+            <AppIcon icon={Mic01Icon} size={13} strokeWidth={1.75} />
           )}
         </IconBtn>
       )}
@@ -175,7 +175,7 @@ export function AiStatusBarControls() {
         onClick={openMini}
         disabled={miniOpen}
       >
-        <HugeiconsIcon icon={Message01Icon} size={13} strokeWidth={1.75} />
+        <AppIcon icon={Message01Icon} size={13} strokeWidth={1.75} />
       </IconBtn>
 
       {c.isBusy ? (
@@ -188,7 +188,7 @@ export function AiStatusBarControls() {
           aria-label="Stop"
           title="Stop"
         >
-          <HugeiconsIcon icon={StopCircleIcon} size={13} strokeWidth={1.75} />
+          <AppIcon icon={StopCircleIcon} size={13} strokeWidth={1.75} />
         </Button>
       ) : (
         <Button
@@ -200,7 +200,7 @@ export function AiStatusBarControls() {
           aria-label="Send"
           title="Send (Enter)"
         >
-          <HugeiconsIcon icon={ArrowUpIcon} size={13} strokeWidth={1.75} />
+          <AppIcon icon={ArrowUpIcon} size={13} strokeWidth={1.75} />
         </Button>
       )}
     </div>
@@ -306,7 +306,7 @@ function ModelDropdown() {
           }
         >
           {current.label}
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowDown01Icon}
             size={11}
             strokeWidth={2}
@@ -324,7 +324,7 @@ function ModelDropdown() {
       >
         {/* Search */}
         <div className="flex items-center gap-2.5 border-b border-border/70 px-3 py-2.5">
-          <HugeiconsIcon
+          <AppIcon
             icon={Search01Icon}
             size={16}
             strokeWidth={1.75}
@@ -403,7 +403,7 @@ function ModelDropdown() {
           <div className="min-h-0 flex-1 overflow-y-auto py-1">
             {activeProvider === COMPAT_PROVIDER_ID && (
               <div className="flex items-center gap-1.5 px-3 pt-1 pb-1.5 text-[11px] font-medium tracking-tight text-muted-foreground/90">
-                <HugeiconsIcon icon={PlugIcon} size={13} strokeWidth={1.75} />
+                <AppIcon icon={PlugIcon} size={13} strokeWidth={1.75} />
                 <span>OpenAI Compatible</span>
               </div>
             )}
@@ -478,7 +478,7 @@ function TabButton({
           : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
       )}
     >
-      <HugeiconsIcon icon={icon} size={12} strokeWidth={1.75} />
+      <AppIcon icon={icon} size={12} strokeWidth={1.75} />
       {label}
       {count != null ? (
         <span className="rounded-full bg-muted/60 px-1.5 text-[9.5px] tabular-nums text-muted-foreground">
@@ -516,7 +516,7 @@ function ProviderPill({
             : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
       )}
     >
-      <HugeiconsIcon icon={icon} size={16} strokeWidth={1.5} />
+      <AppIcon icon={icon} size={16} strokeWidth={1.5} />
     </button>
   );
 }
@@ -526,7 +526,7 @@ function ProviderHeader({ providerId }: { providerId: ProviderId }) {
   if (!p) return null;
   return (
     <div className="flex items-center gap-1.5 px-3 pt-1 pb-1.5 text-[11px] font-medium tracking-tight text-muted-foreground/90">
-      <HugeiconsIcon
+      <AppIcon
         icon={PROVIDER_ICON[p.id]}
         size={13}
         strokeWidth={1.75}
@@ -545,7 +545,7 @@ function ProviderConfigureCTA({ providerId }: { providerId: ProviderId }) {
       onClick={() => void openSettingsWindow("models")}
       className="group mx-2 mb-1 flex w-[calc(100%-1rem)] items-center gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-left text-[11px] text-muted-foreground transition-colors hover:border-border hover:bg-accent/40 hover:text-foreground"
     >
-      <HugeiconsIcon icon={Settings01Icon} size={13} strokeWidth={1.75} />
+      <AppIcon icon={Settings01Icon} size={13} strokeWidth={1.75} />
       <span className="flex-1 truncate">
         Configure {p.label} to use these models.
       </span>
@@ -600,7 +600,7 @@ function ModelRow({
             : "text-muted-foreground/40 hover:text-amber-500",
         )}
       >
-        <HugeiconsIcon
+        <AppIcon
           icon={StarIcon}
           size={12}
           strokeWidth={favorite ? 2 : 1.75}
@@ -609,7 +609,7 @@ function ModelRow({
       </button>
 
       {showProviderIcon ? (
-        <HugeiconsIcon
+        <AppIcon
           icon={PROVIDER_ICON[model.provider]}
           size={13}
           strokeWidth={1.5}
@@ -629,7 +629,7 @@ function ModelRow({
       <CapabilityBars caps={model.capabilities} />
 
       {selected ? (
-        <HugeiconsIcon
+        <AppIcon
           icon={Tick01Icon}
           size={13}
           strokeWidth={2}
@@ -668,7 +668,7 @@ function CapBar({
       className="flex items-center gap-0.5"
       title={`${label}: ${value}/5`}
     >
-      <HugeiconsIcon
+      <AppIcon
         icon={icon}
         size={10}
         strokeWidth={1.75}

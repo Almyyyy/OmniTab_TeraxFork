@@ -2,7 +2,7 @@ import {
   CheckListIcon,
   ClaudeIcon,
   SparklesIcon,
-} from "@hugeicons/core-free-icons";
+} from "@/components/icons";
 import { usePlanStore } from "../store/planStore";
 
 /**

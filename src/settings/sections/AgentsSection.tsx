@@ -33,8 +33,8 @@ import {
   Delete02Icon,
   Edit02Icon,
   SparklesIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
@@ -96,7 +96,7 @@ export function AgentsSection() {
               })
             }
           >
-            <HugeiconsIcon icon={Add01Icon} size={12} strokeWidth={1.75} />
+            <AppIcon icon={Add01Icon} size={12} strokeWidth={1.75} />
             New agent
           </Button>
         </div>
@@ -140,7 +140,7 @@ export function AgentsSection() {
               })
             }
           >
-            <HugeiconsIcon icon={Add01Icon} size={12} strokeWidth={1.75} />
+            <AppIcon icon={Add01Icon} size={12} strokeWidth={1.75} />
             New snippet
           </Button>
         </div>
@@ -177,7 +177,7 @@ export function AgentsSection() {
                   onClick={() => setEditingSnippet(s)}
                   title="Edit"
                 >
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={Edit02Icon}
                     size={12}
                     strokeWidth={1.75}
@@ -190,7 +190,7 @@ export function AgentsSection() {
                   onClick={() => removeSnippet(s.id)}
                   title="Delete"
                 >
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={Delete02Icon}
                     size={12}
                     strokeWidth={1.75}
@@ -249,7 +249,7 @@ function AgentCard({
     >
       <div className="flex items-start gap-2">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/40">
-          <HugeiconsIcon icon={Icon} size={14} strokeWidth={1.5} />
+          <AppIcon icon={Icon} size={14} strokeWidth={1.5} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="flex items-center gap-1.5 text-[12.5px] font-medium">
@@ -274,7 +274,7 @@ function AgentCard({
         >
           {active ? (
             <>
-              <HugeiconsIcon
+              <AppIcon
                 icon={CheckmarkCircle02Icon}
                 size={10}
                 strokeWidth={2}
@@ -294,7 +294,7 @@ function AgentCard({
               onClick={onEdit}
               title="Edit"
             >
-              <HugeiconsIcon icon={Edit02Icon} size={11} strokeWidth={1.75} />
+              <AppIcon icon={Edit02Icon} size={11} strokeWidth={1.75} />
             </Button>
           ) : null}
           {onDelete ? (
@@ -305,7 +305,7 @@ function AgentCard({
               onClick={onDelete}
               title="Delete"
             >
-              <HugeiconsIcon icon={Delete02Icon} size={11} strokeWidth={1.75} />
+              <AppIcon icon={Delete02Icon} size={11} strokeWidth={1.75} />
             </Button>
           ) : null}
         </div>
@@ -361,7 +361,7 @@ function AgentEditorDialog({
                           : "border-border/60 hover:bg-accent/40",
                       )}
                     >
-                      <HugeiconsIcon icon={Icon} size={13} strokeWidth={1.75} />
+                      <AppIcon icon={Icon} size={13} strokeWidth={1.75} />
                     </button>
                   );
                 })}

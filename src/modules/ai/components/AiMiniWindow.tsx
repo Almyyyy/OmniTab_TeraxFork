@@ -25,8 +25,8 @@ import {
   Delete02Icon,
   FilterIcon,
   TerminalIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { motion } from "motion/react";
 import { useEffect, useMemo } from "react";
 import { estimateCost, getModel, getModelContextLimit, type ModelId } from "../config";
@@ -305,7 +305,7 @@ function Header({
           aria-label="Close"
           title="Close (Esc)"
         >
-          <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={1.75} />
+          <AppIcon icon={Cancel01Icon} size={11} strokeWidth={1.75} />
         </Button>
       </div>
     </div>
@@ -459,7 +459,7 @@ function SessionPicker() {
           title="Switch session"
         >
           <span className="truncate">{active.title || "New chat"}</span>
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowDown01Icon}
             size={10}
             strokeWidth={2}
@@ -472,7 +472,7 @@ function SessionPicker() {
           onSelect={() => newSession()}
           className="gap-2 text-xs"
         >
-          <HugeiconsIcon icon={Add01Icon} size={12} strokeWidth={1.75} />
+          <AppIcon icon={Add01Icon} size={12} strokeWidth={1.75} />
           New session
         </DropdownMenuItem>
         {sorted.length > 0 ? <DropdownMenuSeparator /> : null}
@@ -530,7 +530,7 @@ function SessionRow({
         title="Delete session"
         className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
       >
-        <HugeiconsIcon icon={Delete02Icon} size={11} strokeWidth={1.75} />
+        <AppIcon icon={Delete02Icon} size={11} strokeWidth={1.75} />
       </button>
     </DropdownMenuItem>
   );
@@ -560,7 +560,7 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
             )}
           >
             <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground transition-colors group-hover:bg-foreground/5 group-hover:text-foreground">
-              <HugeiconsIcon icon={s.icon} size={13} strokeWidth={1.75} />
+              <AppIcon icon={s.icon} size={13} strokeWidth={1.75} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[12px] font-medium text-foreground">

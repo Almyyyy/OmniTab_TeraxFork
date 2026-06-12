@@ -32,8 +32,8 @@ import {
   FolderAddIcon,
   Refresh01Icon,
   Search01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
@@ -918,7 +918,7 @@ export const RemoteFileExplorer = forwardRef<FileExplorerHandle, Props>(
               >
                 <span className="flex size-3.5 shrink-0 items-center justify-center text-muted-foreground">
                   {entry.isDir ? (
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={ArrowRight01Icon}
                       size={12}
                       strokeWidth={2.25}
@@ -1083,7 +1083,7 @@ export const RemoteFileExplorer = forwardRef<FileExplorerHandle, Props>(
             title="Search files"
             aria-label="Search files"
           >
-            <HugeiconsIcon icon={Search01Icon} size={13} strokeWidth={2} />
+            <AppIcon icon={Search01Icon} size={13} strokeWidth={2} />
           </Button>
           <Button
             variant="ghost"
@@ -1093,7 +1093,7 @@ export const RemoteFileExplorer = forwardRef<FileExplorerHandle, Props>(
             onClick={() => beginCreate(rootPath, "file")}
             title="New file"
           >
-            <HugeiconsIcon icon={FileAddIcon} size={13} strokeWidth={2} />
+            <AppIcon icon={FileAddIcon} size={13} strokeWidth={2} />
           </Button>
           <Button
             variant="ghost"
@@ -1103,7 +1103,7 @@ export const RemoteFileExplorer = forwardRef<FileExplorerHandle, Props>(
             onClick={() => beginCreate(rootPath, "dir")}
             title="New folder"
           >
-            <HugeiconsIcon icon={FolderAddIcon} size={13} strokeWidth={2} />
+            <AppIcon icon={FolderAddIcon} size={13} strokeWidth={2} />
           </Button>
           <Button
             variant="ghost"
@@ -1113,13 +1113,13 @@ export const RemoteFileExplorer = forwardRef<FileExplorerHandle, Props>(
             onClick={() => refresh(rootPath)}
             title="Refresh"
           >
-            <HugeiconsIcon icon={Refresh01Icon} size={12} strokeWidth={2} />
+            <AppIcon icon={Refresh01Icon} size={12} strokeWidth={2} />
           </Button>
         </div>
 
         {isSearchOpen ? (
           <div className="relative shrink-0 px-2 py-1.5">
-            <HugeiconsIcon
+            <AppIcon
               icon={Search01Icon}
               size={13}
               strokeWidth={2}
@@ -1146,7 +1146,7 @@ export const RemoteFileExplorer = forwardRef<FileExplorerHandle, Props>(
                 className="absolute top-1/2 right-3.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Clear search"
               >
-                <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={2} />
+                <AppIcon icon={Cancel01Icon} size={11} strokeWidth={2} />
               </button>
             ) : null}
           </div>

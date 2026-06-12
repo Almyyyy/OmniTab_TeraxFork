@@ -8,8 +8,8 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
-import { CheckmarkCircle01Icon, CopyIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { CheckmarkCircle01Icon, CopyIcon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import type { ComponentProps } from "react";
 import {
   createContext,
@@ -140,7 +140,7 @@ export const SnippetCopyButton = ({
       title="Copy"
       {...props}
     >
-      {children ?? <HugeiconsIcon icon={Icon} size={14} className="size-3.5" />}
+      {children ?? <AppIcon icon={Icon} size={14} className="size-3.5" />}
     </InputGroupButton>
   );
 };

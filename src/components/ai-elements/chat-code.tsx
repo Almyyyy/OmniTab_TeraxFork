@@ -8,8 +8,8 @@ import {
   CheckmarkCircle01Icon,
   CopyIcon,
   TerminalIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { createContext, memo, useContext, useEffect, useRef, useState } from "react";
 
 import { Shimmer } from "./shimmer";
@@ -232,7 +232,7 @@ function RunInTerminalButton({ command }: { command: string }) {
       aria-label="Run in active terminal"
       title="Run in active terminal"
     >
-      <HugeiconsIcon
+      <AppIcon
         icon={sent ? TerminalIcon : ArrowRight01Icon}
         size={11}
         strokeWidth={1.75}
@@ -268,7 +268,7 @@ function CopyButton({ text }: { text: string }) {
       className="size-5 shrink-0 text-muted-foreground hover:text-foreground"
       aria-label="Copy code"
     >
-      <HugeiconsIcon
+      <AppIcon
         icon={copied ? CheckmarkCircle01Icon : CopyIcon}
         size={11}
         strokeWidth={1.75}

@@ -11,8 +11,8 @@ import {
   useWorkspaceEnvStore,
   type WorkspaceEnv,
 } from "@/modules/workspace";
-import { Refresh01Icon, ServerStack03Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Refresh01Icon, ServerStack03Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 
 type Props = {
   onSelect: (env: WorkspaceEnv) => void;
@@ -43,7 +43,7 @@ export function WorkspaceEnvSelector({ onSelect }: Props) {
           className="flex h-6 shrink-0 items-center gap-1 rounded-sm px-1.5 text-[11px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-0 data-[state=open]:bg-accent data-[state=open]:text-foreground"
           title="Workspace environment"
         >
-          <HugeiconsIcon
+          <AppIcon
             icon={ServerStack03Icon}
             size={13}
             strokeWidth={1.75}
@@ -76,7 +76,7 @@ export function WorkspaceEnvSelector({ onSelect }: Props) {
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void refreshDistros()}>
-          <HugeiconsIcon icon={Refresh01Icon} size={13} strokeWidth={1.75} />
+          <AppIcon icon={Refresh01Icon} size={13} strokeWidth={1.75} />
           Refresh
         </DropdownMenuItem>
       </DropdownMenuContent>

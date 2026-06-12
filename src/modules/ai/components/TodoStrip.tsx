@@ -8,8 +8,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { CheckmarkSquare02Icon, SquareIcon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useEffect } from "react";
 import type { Todo } from "../lib/todos";
 import { useTodosStore } from "../store/todoStore";
@@ -66,7 +66,7 @@ function TodoRow({ todo }: { todo: Todo }) {
         {isInProgress ? (
           <Spinner className="size-3" />
         ) : (
-          <HugeiconsIcon
+          <AppIcon
             icon={
               todo.status === "completed" ? CheckmarkSquare02Icon : SquareIcon
             }

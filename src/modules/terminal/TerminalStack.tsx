@@ -15,8 +15,8 @@ import {
   PencilEdit02Icon,
   ServerStack02Icon,
   SidebarLeftIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon, type IconComponent } from "@/components/icons";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useEffect, useMemo, useRef } from "react";
 import { PaneTreeView } from "./PaneTreeView";
@@ -163,7 +163,7 @@ export function TerminalHostToolbar({
             <SelectContent>
               <SelectItem value="local">
                 <div className="flex min-w-0 items-center gap-2">
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={FolderTreeIcon}
                     size={14}
                     strokeWidth={1.75}
@@ -175,7 +175,7 @@ export function TerminalHostToolbar({
               {hosts.map((host) => (
                 <SelectItem key={host.id} value={sourceForHost(host.id)}>
                   <div className="flex min-w-0 items-center gap-2">
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={ServerStack02Icon}
                       size={14}
                       strokeWidth={1.75}
@@ -210,7 +210,7 @@ function IconButton({
   title: string;
   disabled?: boolean;
   onClick: () => void;
-  icon: IconSvgElement;
+  icon: IconComponent;
 }) {
   return (
     <Button
@@ -222,7 +222,7 @@ function IconButton({
       disabled={disabled}
       className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
     >
-      <HugeiconsIcon icon={icon} size={14} strokeWidth={1.75} />
+      <AppIcon icon={icon} size={14} strokeWidth={1.75} />
     </Button>
   );
 }

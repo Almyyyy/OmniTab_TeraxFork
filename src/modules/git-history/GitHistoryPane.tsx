@@ -17,8 +17,8 @@ import {
   Copy01Icon,
   File02Icon,
   LinkSquare02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -769,7 +769,7 @@ const CommitRow = memo(function CommitRow({
             className="inline-flex items-center gap-1 text-muted-foreground/75"
             title={`${commit.filesChanged} ${commit.filesChanged === 1 ? "file" : "files"} changed`}
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={File02Icon}
               size={10.5}
               strokeWidth={1.7}
@@ -872,7 +872,7 @@ function CommitDetail({
               setCopied(true);
             }}
           >
-            <HugeiconsIcon icon={Copy01Icon} size={11} strokeWidth={1.9} />
+            <AppIcon icon={Copy01Icon} size={11} strokeWidth={1.9} />
             {copied ? "Copied" : "Copy SHA"}
           </Button>
           {webUrl ? (
@@ -882,7 +882,7 @@ function CommitDetail({
               className="h-6 cursor-pointer gap-1.5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
               onClick={() => void openUrl(webUrl).catch(console.error)}
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={LinkSquare02Icon}
                 size={11}
                 strokeWidth={1.9}

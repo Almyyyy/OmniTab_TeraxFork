@@ -6,8 +6,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowDown01Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -179,7 +179,7 @@ export const ReasoningTrigger = memo(
         {children ?? (
           <>
             {getThinkingMessage(isStreaming, duration)}
-            <HugeiconsIcon
+            <AppIcon
               icon={ArrowDown01Icon}
               size={11}
               strokeWidth={1.75}

@@ -8,8 +8,8 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Settings01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Settings01Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import {
@@ -47,7 +47,7 @@ export function ShortcutsDialog({ open, onOpenChange }: Props) {
             className="h-8 gap-1.5 px-2.5 text-[11px] font-medium"
             onClick={onOpenSettings}
           >
-            <HugeiconsIcon icon={Settings01Icon} size={12} strokeWidth={2} />
+            <AppIcon icon={Settings01Icon} size={12} strokeWidth={2} />
             <span>Customize</span>
           </Button>
         </DialogHeader>

@@ -5,8 +5,8 @@ import {
   Copy01Icon,
   MinusSignIcon,
   SquareIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 
@@ -42,13 +42,13 @@ export function WindowControls({ closeOnly = false }: Props) {
       {!closeOnly && (
         <>
           <CtlButton ariaLabel="Minimize" onClick={() => void w.minimize()}>
-            <HugeiconsIcon icon={MinusSignIcon} size={12} strokeWidth={2} />
+            <AppIcon icon={MinusSignIcon} size={12} strokeWidth={2} />
           </CtlButton>
           <CtlButton
             ariaLabel={maximized ? "Restore" : "Maximize"}
             onClick={() => void w.toggleMaximize()}
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={maximized ? Copy01Icon : SquareIcon}
               size={12}
               strokeWidth={2}
@@ -57,7 +57,7 @@ export function WindowControls({ closeOnly = false }: Props) {
         </>
       )}
       <CtlButton ariaLabel="Close" onClick={() => void w.close()} danger>
-        <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
+        <AppIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
       </CtlButton>
     </div>
   );

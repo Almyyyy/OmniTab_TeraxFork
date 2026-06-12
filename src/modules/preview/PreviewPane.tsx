@@ -1,5 +1,5 @@
-import { Alert02Icon, Globe02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Alert02Icon, Globe02Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { Webview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -400,7 +400,7 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, Props>(
 function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-border/60 bg-destructive/8 px-3 text-[11px] text-destructive">
-      <HugeiconsIcon
+      <AppIcon
         icon={Alert02Icon}
         size={12}
         strokeWidth={1.75}
@@ -423,7 +423,7 @@ function EmptyState() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center">
       <div className="flex size-12 items-center justify-center rounded-2xl border border-border/60 bg-card text-muted-foreground">
-        <HugeiconsIcon icon={Globe02Icon} size={20} strokeWidth={1.5} />
+        <AppIcon icon={Globe02Icon} size={20} strokeWidth={1.5} />
       </div>
       <div className="space-y-1.5">
         <p className="text-sm font-medium text-foreground">New browser tab</p>

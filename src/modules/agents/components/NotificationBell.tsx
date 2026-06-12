@@ -10,8 +10,8 @@ import {
   Loading03Icon,
   Notification01Icon,
   Notification03Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { invoke } from "@tauri-apps/api/core";
 import { useMemo, useState } from "react";
 import { AgentIcon } from "../lib/agentIcon";
@@ -89,7 +89,7 @@ function NotificationRow({
     >
       <span className="flex w-4 shrink-0 items-center justify-center">
         {n.kind === "finished" ? (
-          <HugeiconsIcon
+          <AppIcon
             icon={CheckmarkCircle02Icon}
             size={15}
             strokeWidth={1.75}
@@ -188,7 +188,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
           className="relative size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           title="Agent notifications"
         >
-          <HugeiconsIcon
+          <AppIcon
             icon={Notification01Icon}
             size={16}
             strokeWidth={1.75}
@@ -255,7 +255,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
         <div className="border-t flex justify-center border-border/60 p-1">
           {hooksReady ? (
             <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-muted-foreground">
-              <HugeiconsIcon
+              <AppIcon
                 icon={CheckmarkCircle02Icon}
                 size={13}
                 strokeWidth={1.75}
@@ -270,7 +270,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
               disabled={installing}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={installing ? Loading03Icon : Notification03Icon}
                 size={14}
                 strokeWidth={1.75}

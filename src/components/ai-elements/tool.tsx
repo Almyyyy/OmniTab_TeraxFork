@@ -22,9 +22,9 @@ import {
   SparklesIcon,
   TerminalIcon,
   ToolsIcon,
-} from "@hugeicons/core-free-icons";
+} from "@/components/icons";
 import { useChatStore } from "@/modules/ai/store/chatStore";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { AppIcon } from "@/components/icons";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import type { ComponentProps, ReactNode } from "react";
 import { isValidElement, memo, useState } from "react";
@@ -177,7 +177,7 @@ const ToolImpl = ({
           className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[state])}
           aria-label={STATUS_LABEL[state]}
         />
-        <HugeiconsIcon
+        <AppIcon
           icon={Icon}
           size={13}
           strokeWidth={1.75}
@@ -404,7 +404,7 @@ function renderToolOutput(toolName: string, output: unknown): ReactNode | null {
             key={`d-${e.name}`}
             className="flex items-center gap-1.5 truncate"
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={FolderOpenIcon}
               size={11}
               strokeWidth={1.75}
@@ -418,7 +418,7 @@ function renderToolOutput(toolName: string, output: unknown): ReactNode | null {
             key={`f-${e.name}`}
             className="flex items-center gap-1.5 truncate"
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={File01Icon}
               size={11}
               strokeWidth={1.75}
@@ -737,7 +737,7 @@ function SuggestCommandCard({
           )}
           aria-label="Insert into active terminal"
         >
-          <HugeiconsIcon
+          <AppIcon
             icon={inserted ? TerminalIcon : ArrowRight01Icon}
             size={12}
             strokeWidth={1.75}

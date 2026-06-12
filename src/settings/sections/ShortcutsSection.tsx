@@ -15,8 +15,8 @@ import {
   ArrowTurnBackwardIcon,
   Search01Icon,
   Delete02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useEffect, useState, useMemo } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 import {
@@ -83,7 +83,7 @@ export function ShortcutsSection() {
           className="h-8 gap-1.5 px-2.5 text-[11px]"
           onClick={() => setResetDialogOpen(true)}
         >
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowTurnBackwardIcon}
             size={12}
             strokeWidth={2}
@@ -93,7 +93,7 @@ export function ShortcutsSection() {
       </div>
 
       <div className="relative">
-        <HugeiconsIcon
+        <AppIcon
           icon={Search01Icon}
           size={14}
           strokeWidth={2}
@@ -227,7 +227,7 @@ function ShortcutRow({
                   onClick={onReset}
                   title="Reset to default"
                 >
-                  <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} />
+                  <AppIcon icon={ArrowTurnBackwardIcon} size={12} />
                 </Button>
               )}
               <Button
@@ -237,7 +237,7 @@ function ShortcutRow({
                 onClick={onClear}
                 title="Clear shortcut"
               >
-                <HugeiconsIcon icon={Delete02Icon} size={12} />
+                <AppIcon icon={Delete02Icon} size={12} />
               </Button>
             </div>
           </>

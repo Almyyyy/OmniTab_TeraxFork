@@ -39,8 +39,8 @@ import {
   Moon02Icon,
   PlusSignIcon,
   Sun03Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
@@ -484,7 +484,7 @@ export function ThemesSection() {
                   : "border-border/60 hover:border-border",
               )}
             >
-              <HugeiconsIcon icon={o.icon} size={18} strokeWidth={1.5} />
+              <AppIcon icon={o.icon} size={18} strokeWidth={1.5} />
               <span className="text-[11.5px]">{o.label}</span>
             </button>
           ))}
@@ -532,7 +532,7 @@ export function ThemesSection() {
               className="h-7 gap-1.5 px-2 text-[11px]"
               onClick={onCreateTheme}
             >
-              <HugeiconsIcon icon={PlusSignIcon} size={11} strokeWidth={2} />
+              <AppIcon icon={PlusSignIcon} size={11} strokeWidth={2} />
               Create
             </Button>
             <Button
@@ -623,7 +623,7 @@ export function ThemesSection() {
                       void onDuplicateTheme(t);
                     }}
                   >
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={Copy01Icon}
                       size={12}
                       strokeWidth={1.75}
@@ -640,7 +640,7 @@ export function ThemesSection() {
                           onEditTheme(t);
                         }}
                       >
-                        <HugeiconsIcon
+                        <AppIcon
                           icon={Edit02Icon}
                           size={12}
                           strokeWidth={1.75}

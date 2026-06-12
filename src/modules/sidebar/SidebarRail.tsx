@@ -2,8 +2,8 @@ import { cn } from "@/lib/utils";
 import {
   FolderGitTwoIcon,
   FolderTreeIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import type { SidebarViewId } from "./types";
 
 export const SIDEBAR_RAIL_HEIGHT = 36;
@@ -11,7 +11,7 @@ export const SIDEBAR_RAIL_HEIGHT = 36;
 type RailItem = {
   id: SidebarViewId;
   label: string;
-  icon: Parameters<typeof HugeiconsIcon>[0]["icon"];
+  icon: Parameters<typeof AppIcon>[0]["icon"];
   badge?: number;
 };
 
@@ -55,7 +55,7 @@ export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
                 : "text-muted-foreground hover:bg-foreground/[0.045] hover:text-foreground",
             )}
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={item.icon}
               size={14}
               strokeWidth={isActive ? 2 : 1.75}

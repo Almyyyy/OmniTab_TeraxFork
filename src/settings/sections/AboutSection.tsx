@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useUpdater } from "@/modules/updater";
-import { GithubIcon, Globe02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { GithubIcon, Globe02Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { getName, getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { arch, platform } from "@tauri-apps/plugin-os";
@@ -102,7 +102,7 @@ export function AboutSection() {
             onClick={() => void openUrl(REPO_URL)}
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
-            <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
+            <AppIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
             OmniTabOrg/OmniTab_TeraxFork
           </button>
         </dd>
@@ -113,7 +113,7 @@ export function AboutSection() {
             onClick={() => void openUrl(WEBSITE)}
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
-            <HugeiconsIcon icon={Globe02Icon} size={12} strokeWidth={1.75} />
+            <AppIcon icon={Globe02Icon} size={12} strokeWidth={1.75} />
             omnitab.app
           </button>
         </dd>
@@ -134,7 +134,7 @@ export function AboutSection() {
             onClick={() => void openUrl(REPO_URL)}
             className="gap-1.5"
           >
-            <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
+            <AppIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
             View on GitHub
           </Button>
           <Button

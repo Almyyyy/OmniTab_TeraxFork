@@ -26,8 +26,8 @@ import {
   PencilEdit02Icon,
   PlusSignIcon,
   ServerStack02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import {
   Fragment,
   useCallback,
@@ -460,7 +460,7 @@ export function TabBar({
                   }}
                   className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:opacity-100 group-hover:opacity-60"
                 >
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={Cancel01Icon}
                     size={11}
                     strokeWidth={2}
@@ -480,7 +480,7 @@ export function TabBar({
                     onCloseAutoFocus={(e) => e.preventDefault()}
                   >
                     <ContextMenuItem onSelect={() => setEditingId(t.id)}>
-                      <HugeiconsIcon
+                      <AppIcon
                         icon={PencilEdit02Icon}
                         size={14}
                         strokeWidth={1.75}
@@ -489,7 +489,7 @@ export function TabBar({
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     <ContextMenuItem onSelect={() => onClose(t.id)}>
-                      <HugeiconsIcon
+                      <AppIcon
                         icon={Cancel01Icon}
                         size={14}
                         strokeWidth={1.75}
@@ -526,12 +526,12 @@ export function TabBar({
             className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             title="New tab"
           >
-            <HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={2} />
+            <AppIcon icon={PlusSignIcon} size={14} strokeWidth={2} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-44">
           <DropdownMenuItem onSelect={() => onNew()}>
-            <HugeiconsIcon
+            <AppIcon
               icon={ComputerTerminal02Icon}
               size={14}
               strokeWidth={1.75}
@@ -542,14 +542,14 @@ export function TabBar({
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => onNewWindow()}>
-            <HugeiconsIcon icon={BrowserIcon} size={14} strokeWidth={1.75} />
+            <AppIcon icon={BrowserIcon} size={14} strokeWidth={1.75} />
             <span className="flex-1">Window</span>
             <span className="text-xs text-muted-foreground">
               {fmtShortcut(MOD_KEY, "W")}
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => onNewPreview()}>
-            <HugeiconsIcon icon={Globe02Icon} size={14} strokeWidth={1.75} />
+            <AppIcon icon={Globe02Icon} size={14} strokeWidth={1.75} />
             <span className="flex-1">Browser</span>
             <span className="text-xs text-muted-foreground">
               {fmtShortcut(MOD_KEY, "P")}
@@ -612,7 +612,7 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
   if (tab.kind === "preview") {
     return (
-      <HugeiconsIcon
+      <AppIcon
         icon={Globe02Icon}
         size={14}
         strokeWidth={2}
@@ -622,7 +622,7 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
   if (tab.kind === "ai-diff") {
     return (
-      <HugeiconsIcon
+      <AppIcon
         icon={GitCompareIcon}
         size={14}
         strokeWidth={2}
@@ -632,7 +632,7 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
   if (tab.kind === "git-diff" || tab.kind === "git-commit-file") {
     return (
-      <HugeiconsIcon
+      <AppIcon
         icon={GitCompareIcon}
         size={14}
         strokeWidth={2}
@@ -642,7 +642,7 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
   if (tab.kind === "git-history") {
     return (
-      <HugeiconsIcon
+      <AppIcon
         icon={Clock01Icon}
         size={14}
         strokeWidth={2}
@@ -652,7 +652,7 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
   if (tab.kind === "hosts-sftp") {
     return (
-      <HugeiconsIcon
+      <AppIcon
         icon={ServerStack02Icon}
         size={14}
         strokeWidth={2}
@@ -661,7 +661,7 @@ function TabIcon({ tab }: { tab: Tab }) {
     );
   }
   return (
-    <HugeiconsIcon
+    <AppIcon
       icon={ComputerTerminal02Icon}
       size={14}
       strokeWidth={2}

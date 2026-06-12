@@ -9,8 +9,8 @@ import {
   TerminalIcon,
   Tick02Icon,
   ToolsIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import type { ToolUIPart } from "ai";
 import { memo } from "react";
 
@@ -40,7 +40,7 @@ function AiToolApprovalImpl({ part, toolName, onRespond }: Props) {
     <div className="rounded-lg border border-border bg-card shadow-sm">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
         <span className="size-1.5 shrink-0 rounded-full bg-amber-500 animate-pulse" />
-        <HugeiconsIcon
+        <AppIcon
           icon={Icon}
           size={13}
           strokeWidth={1.75}
@@ -65,7 +65,7 @@ function AiToolApprovalImpl({ part, toolName, onRespond }: Props) {
           onClick={() => onRespond(false)}
           className="h-7 gap-1.5 text-[11px]"
         >
-          <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} />
+          <AppIcon icon={Cancel01Icon} size={12} strokeWidth={2} />
           Deny
         </Button>
         <Button
@@ -74,7 +74,7 @@ function AiToolApprovalImpl({ part, toolName, onRespond }: Props) {
           onClick={() => onRespond(true)}
           className="h-7 gap-1.5 text-[11px]"
         >
-          <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2} />
+          <AppIcon icon={Tick02Icon} size={12} strokeWidth={2} />
           Approve
         </Button>
       </div>

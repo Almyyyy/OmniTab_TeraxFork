@@ -1,6 +1,6 @@
 import { PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { AppIcon } from "@/components/icons";
 import type { SlashCommandMeta } from "../lib/slashCommands";
 import type { Snippet } from "../lib/snippets";
 
@@ -63,7 +63,7 @@ export function SnippetPickerContent({
                             : "hover:bg-accent/60",
                         )}
                       >
-                        <HugeiconsIcon
+                        <AppIcon
                           icon={c.icon}
                           size={13}
                           strokeWidth={1.75}

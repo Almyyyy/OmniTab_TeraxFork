@@ -16,8 +16,8 @@ import {
   type KeyBinding,
   type ShortcutId,
 } from "@/modules/shortcuts";
-import { AlertCircleIcon, Refresh01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { AlertCircleIcon, Refresh01Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   COMMAND_PALETTE_ACTION_GROUPS,
@@ -236,7 +236,7 @@ export function CommandPalette({
                       onSelect={retry}
                       className="text-[12.5px]"
                     >
-                      <HugeiconsIcon
+                      <AppIcon
                         icon={Refresh01Icon}
                         size={14}
                         strokeWidth={1.75}
@@ -312,7 +312,7 @@ function ActionItem({
       onSelect={onRun}
       className="text-[12.5px]"
     >
-      <HugeiconsIcon
+      <AppIcon
         icon={action.icon}
         size={14}
         strokeWidth={1.75}
@@ -344,7 +344,7 @@ function StatusItem({
       className="text-[12.5px] font-normal"
     >
       {tone === "error" ? (
-        <HugeiconsIcon
+        <AppIcon
           icon={AlertCircleIcon}
           size={14}
           strokeWidth={1.75}

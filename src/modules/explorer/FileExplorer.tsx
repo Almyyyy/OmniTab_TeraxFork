@@ -13,8 +13,8 @@ import {
   FolderAddIcon,
   Refresh01Icon,
   Search01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type DragEvent,
@@ -499,7 +499,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
     if (!rootPath) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-          <HugeiconsIcon
+          <AppIcon
             icon={Folder01Icon}
             size={24}
             strokeWidth={1.5}
@@ -751,7 +751,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
             title="Search files"
             aria-label="Search files"
           >
-            <HugeiconsIcon icon={Search01Icon} size={13} strokeWidth={2} />
+            <AppIcon icon={Search01Icon} size={13} strokeWidth={2} />
           </Button>
 
           <Button
@@ -761,7 +761,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
             onClick={() => tree.beginCreate(rootPath, "file")}
             title="New file"
           >
-            <HugeiconsIcon icon={FileAddIcon} size={13} strokeWidth={2} />
+            <AppIcon icon={FileAddIcon} size={13} strokeWidth={2} />
           </Button>
           <Button
             variant="ghost"
@@ -770,7 +770,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
             onClick={() => tree.beginCreate(rootPath, "dir")}
             title="New folder"
           >
-            <HugeiconsIcon icon={FolderAddIcon} size={13} strokeWidth={2} />
+            <AppIcon icon={FolderAddIcon} size={13} strokeWidth={2} />
           </Button>
           <Button
             variant="ghost"
@@ -779,7 +779,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
             onClick={() => tree.refresh(rootPath)}
             title="Refresh"
           >
-            <HugeiconsIcon icon={Refresh01Icon} size={12} strokeWidth={2} />
+            <AppIcon icon={Refresh01Icon} size={12} strokeWidth={2} />
           </Button>
         </div>
 

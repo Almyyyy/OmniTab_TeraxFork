@@ -62,8 +62,8 @@ import {
   Cancel01Icon,
   CheckmarkCircle02Icon,
   ChevronDown,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
@@ -450,7 +450,7 @@ function AddProviderMenu({
           variant="outline"
           className="h-7 gap-1.5 px-2.5 text-[11px]"
         >
-          <HugeiconsIcon icon={Add01Icon} size={12} strokeWidth={2} />
+          <AppIcon icon={Add01Icon} size={12} strokeWidth={2} />
           Add provider
         </Button>
       </DropdownMenuTrigger>
@@ -549,7 +549,7 @@ function DefaultModelPicker({
             <span className="truncate">{m.label}</span>
             <span className="text-muted-foreground">· {m.hint}</span>
           </span>
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowDown01Icon}
             size={11}
             strokeWidth={2}
@@ -673,7 +673,7 @@ function AutocompleteRow({
                     · {currentModel.hint}
                   </span>
                 </span>
-                <HugeiconsIcon
+                <AppIcon
                   icon={ArrowDown01Icon}
                   size={11}
                   strokeWidth={2}
@@ -798,7 +798,7 @@ function LocalProviderCard({
             variant="outline"
             className="ml-1 h-4 gap-1 border-border/60 bg-muted/40 px-1.5 text-[10px] font-normal text-muted-foreground"
           >
-            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={9} strokeWidth={2} />
+            <AppIcon icon={CheckmarkCircle02Icon} size={9} strokeWidth={2} />
             Connected
           </Badge>
         ) : null}
@@ -808,7 +808,7 @@ function LocalProviderCard({
           className="ml-auto inline-flex items-center gap-0.5 text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
         >
           Docs
-          <HugeiconsIcon icon={ArrowUpRight01Icon} size={11} strokeWidth={1.75} />
+          <AppIcon icon={ArrowUpRight01Icon} size={11} strokeWidth={1.75} />
         </button>
         <Button
           size="icon"
@@ -817,7 +817,7 @@ function LocalProviderCard({
           title="Remove provider"
           className="size-7 text-muted-foreground hover:text-destructive"
         >
-          <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
+          <AppIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
         </Button>
       </div>
 
@@ -901,7 +901,7 @@ function LocalProviderCard({
                   title="Remove key"
                   className="size-7 text-muted-foreground hover:text-destructive"
                 >
-                  <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
+                  <AppIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
                 </Button>
               </div>
             ) : (
@@ -999,7 +999,7 @@ function CustomEndpointCard({
         onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-2 px-3 py-2 text-left"
       >
-        <HugeiconsIcon
+        <AppIcon
           icon={ChevronDown}
           size={12}
           strokeWidth={2}
@@ -1022,7 +1022,7 @@ function CustomEndpointCard({
             variant="outline"
             className="ml-1 h-4 gap-1 border-border/60 bg-muted/40 px-1.5 text-[10px] font-normal text-muted-foreground"
           >
-            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={9} strokeWidth={2} />
+            <AppIcon icon={CheckmarkCircle02Icon} size={9} strokeWidth={2} />
             Connected
           </Badge>
         ) : null}
@@ -1036,7 +1036,7 @@ function CustomEndpointCard({
           title="Remove endpoint"
           className="ml-auto size-7 text-muted-foreground hover:text-destructive"
         >
-          <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
+          <AppIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
         </Button>
       </button>
 
@@ -1127,7 +1127,7 @@ function CustomEndpointCard({
                   title="Remove key"
                   className="size-7 text-muted-foreground hover:text-destructive"
                 >
-                  <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
+                  <AppIcon icon={Cancel01Icon} size={12} strokeWidth={1.75} />
                 </Button>
               </div>
             ) : (
@@ -1195,7 +1195,7 @@ function StatusLine({
   if (status === "ok") {
     return (
       <span className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
-        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={11} strokeWidth={2} />
+        <AppIcon icon={CheckmarkCircle02Icon} size={11} strokeWidth={2} />
         Reachable — server responded.
       </span>
     );

@@ -22,14 +22,14 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { AppIcon } from "@/components/icons";
 import {
   ArrowRight01Icon,
   CodeIcon,
   File01Icon,
   HashtagIcon,
   TerminalIcon,
-} from "@hugeicons/core-free-icons";
+} from "@/components/icons";
 import { SLASH_COMMANDS, OMNITAB_CMD_RE } from "../lib/slashCommands";
 import { Spinner } from "@/components/ui/spinner";
 import { useChatStore, sendMessage } from "../store/chatStore";
@@ -54,7 +54,7 @@ function CommandSnippet({ name }: { name: string }) {
   }
   return (
     <div className="inline-flex max-w-full items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1">
-      <HugeiconsIcon
+      <AppIcon
         icon={meta.icon}
         size={12}
         strokeWidth={1.75}
@@ -141,7 +141,7 @@ const ContextChips = memo(function ContextChips({
 function chipIcon(c: ContextChip) {
   if (c.kind === "selection") {
     return (
-      <HugeiconsIcon
+      <AppIcon
         icon={c.source === "editor" ? CodeIcon : TerminalIcon}
         size={10}
         strokeWidth={1.75}
@@ -149,9 +149,9 @@ function chipIcon(c: ContextChip) {
     );
   }
   if (c.kind === "file") {
-    return <HugeiconsIcon icon={File01Icon} size={10} strokeWidth={1.75} />;
+    return <AppIcon icon={File01Icon} size={10} strokeWidth={1.75} />;
   }
-  return <HugeiconsIcon icon={HashtagIcon} size={10} strokeWidth={1.75} />;
+  return <AppIcon icon={HashtagIcon} size={10} strokeWidth={1.75} />;
 }
 
 function chipLabel(c: ContextChip): string {
@@ -496,7 +496,7 @@ const ReadGroup = memo(function ReadGroup({ parts }: { parts: AnyPart[] }) {
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         )}
       >
-        <HugeiconsIcon
+        <AppIcon
           icon={ArrowRight01Icon}
           size={11}
           strokeWidth={2}
@@ -505,7 +505,7 @@ const ReadGroup = memo(function ReadGroup({ parts }: { parts: AnyPart[] }) {
             "group-data-[state=open]/read:rotate-90",
           )}
         />
-        <HugeiconsIcon
+        <AppIcon
           icon={File01Icon}
           size={13}
           strokeWidth={1.75}
@@ -528,7 +528,7 @@ const ReadGroup = memo(function ReadGroup({ parts }: { parts: AnyPart[] }) {
               key={path}
               className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={File01Icon}
                 size={10}
                 strokeWidth={1.75}
@@ -577,7 +577,7 @@ const ReadRow = memo(function ReadRow({ part }: { part: AnyPart }) {
             : "border border-muted-foreground/40 bg-transparent",
         )}
       />
-      <HugeiconsIcon
+      <AppIcon
         icon={File01Icon}
         size={13}
         strokeWidth={1.75}

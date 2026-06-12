@@ -3,8 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
-import { ArrowDown01Icon, Download01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowDown01Icon, Download01Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -95,7 +95,7 @@ export const ConversationScrollButton = ({
         variant="outline"
         {...props}
       >
-        <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={2} />
+        <AppIcon icon={ArrowDown01Icon} size={13} strokeWidth={2} />
       </Button>
     )
   );
@@ -163,7 +163,7 @@ export const ConversationDownload = ({
       variant="outline"
       {...props}
     >
-      {children ?? <HugeiconsIcon icon={Download01Icon} size={16} />}
+      {children ?? <AppIcon icon={Download01Icon} size={16} />}
     </Button>
   );
 };

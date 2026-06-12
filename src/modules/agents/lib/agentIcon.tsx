@@ -2,10 +2,10 @@ import {
   ChatGptIcon,
   ClaudeIcon,
   RoboticIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon, type IconComponent } from "@/components/icons";
 
-function iconFor(agent: string): IconSvgElement {
+function iconFor(agent: string): IconComponent {
   const a = agent.toLowerCase();
   if (a.includes("claude")) return ClaudeIcon;
   if (a.includes("codex") || a.includes("gpt") || a.includes("openai"))
@@ -35,7 +35,7 @@ export function AgentIcon({
     );
   }
   return (
-    <HugeiconsIcon
+    <AppIcon
       icon={iconFor(agent)}
       size={size}
       strokeWidth={1.75}

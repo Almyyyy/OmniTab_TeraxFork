@@ -7,8 +7,8 @@ import {
   FilePlusIcon,
   FolderAddIcon,
   Tick02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { useState } from "react";
 import { usePlanStore, type QueuedEdit } from "../store/planStore";
 
@@ -74,7 +74,7 @@ export function PlanDiffReview() {
             onClick={() => clear()}
             disabled={busy}
           >
-            <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} />
+            <AppIcon icon={Cancel01Icon} size={12} strokeWidth={2} />
             Discard all
           </Button>
           <Button
@@ -84,7 +84,7 @@ export function PlanDiffReview() {
             onClick={onApply}
             disabled={busy}
           >
-            <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2} />
+            <AppIcon icon={Tick02Icon} size={12} strokeWidth={2} />
             Apply {queue.length}
           </Button>
         </div>
@@ -131,9 +131,9 @@ function PlanRow({
           )}
           aria-label="Toggle diff"
         >
-          <HugeiconsIcon icon={ArrowDown01Icon} size={11} strokeWidth={1.75} />
+          <AppIcon icon={ArrowDown01Icon} size={11} strokeWidth={1.75} />
         </button>
-        <HugeiconsIcon
+        <AppIcon
           icon={Icon}
           size={13}
           strokeWidth={1.75}
@@ -177,7 +177,7 @@ function PlanRow({
           onClick={onReject}
           aria-label="Reject"
         >
-          <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={1.75} />
+          <AppIcon icon={Cancel01Icon} size={11} strokeWidth={1.75} />
         </Button>
       </div>
       {open && !isDir ? (

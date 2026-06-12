@@ -7,7 +7,7 @@ import type { HostProfile, SftpEntry } from "@/modules/hosts/types";
 import { sftpConfigForHost } from "@/modules/hosts/lib/sshCommand";
 import { getHostPassword } from "@/modules/hosts/lib/passwords";
 import { invoke } from "@tauri-apps/api/core";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { AppIcon } from "@/components/icons";
 import {
   ArrowUp01Icon,
   Delete02Icon,
@@ -19,7 +19,7 @@ import {
   PencilEdit02Icon,
   Refresh01Icon,
   Upload01Icon,
-} from "@hugeicons/core-free-icons";
+} from "@/components/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Props = {
@@ -210,7 +210,7 @@ function SftpPane({ host, visible }: { host: HostProfile; visible: boolean }) {
       <div className="flex shrink-0 items-center gap-3 border-b border-border/60 px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <HugeiconsIcon
+            <AppIcon
               icon={FolderTransferIcon}
               size={17}
               strokeWidth={2}
@@ -234,7 +234,7 @@ function SftpPane({ host, visible }: { host: HostProfile; visible: boolean }) {
           disabled={busy}
           onClick={() => void load(remotePath)}
         >
-          <HugeiconsIcon icon={Refresh01Icon} size={15} strokeWidth={2} />
+          <AppIcon icon={Refresh01Icon} size={15} strokeWidth={2} />
         </Button>
       </div>
 
@@ -249,7 +249,7 @@ function SftpPane({ host, visible }: { host: HostProfile; visible: boolean }) {
             disabled={busy}
             onClick={() => void load(parentRemotePath(remotePath))}
           >
-            <HugeiconsIcon icon={ArrowUp01Icon} size={15} strokeWidth={2} />
+            <AppIcon icon={ArrowUp01Icon} size={15} strokeWidth={2} />
           </Button>
           <Input
             value={pathInput}
@@ -349,7 +349,7 @@ function SftpPane({ host, visible }: { host: HostProfile; visible: boolean }) {
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <HugeiconsIcon
+                    <AppIcon
                       icon={entry.isDir ? Folder01Icon : File01Icon}
                       size={15}
                       strokeWidth={1.9}
@@ -379,7 +379,7 @@ function ToolbarButton({
   disabled,
   onClick,
 }: {
-  icon: Parameters<typeof HugeiconsIcon>[0]["icon"];
+  icon: Parameters<typeof AppIcon>[0]["icon"];
   label: string;
   disabled?: boolean;
   onClick: () => void;
@@ -394,7 +394,7 @@ function ToolbarButton({
       disabled={disabled}
       onClick={onClick}
     >
-      <HugeiconsIcon icon={icon} size={15} strokeWidth={2} />
+      <AppIcon icon={icon} size={15} strokeWidth={2} />
     </Button>
   );
 }

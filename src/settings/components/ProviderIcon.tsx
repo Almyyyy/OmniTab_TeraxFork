@@ -13,8 +13,8 @@ import {
   MistralIcon,
   PlugIcon,
   ServerStack01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 
 const ICON_BY_PROVIDER = {
   openai: ChatGptIcon,
@@ -40,7 +40,7 @@ type Props = {
 
 export function ProviderIcon({ provider, size = 14, className }: Props) {
   return (
-    <HugeiconsIcon
+    <AppIcon
       icon={ICON_BY_PROVIDER[provider]}
       size={size}
       strokeWidth={1.75}

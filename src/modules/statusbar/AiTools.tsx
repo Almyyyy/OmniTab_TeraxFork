@@ -11,8 +11,8 @@ import {
   ArrowDown01Icon,
   ArrowUp01Icon,
   Mic01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -44,7 +44,7 @@ export function AiTools({ aiOpen, canSubmit, onOpenAi, onSubmit }: Props) {
         >
           <ModelSelector />
           <ToolButton title="Voice input">
-            <HugeiconsIcon icon={Mic01Icon} size={14} strokeWidth={1.75} />
+            <AppIcon icon={Mic01Icon} size={14} strokeWidth={1.75} />
           </ToolButton>
           <Button
             size="sm"
@@ -52,7 +52,7 @@ export function AiTools({ aiOpen, canSubmit, onOpenAi, onSubmit }: Props) {
             onClick={onSubmit}
             className="ml-1 h-6 px-1.5"
           >
-            <HugeiconsIcon icon={ArrowUp01Icon} size={13} strokeWidth={2} />
+            <AppIcon icon={ArrowUp01Icon} size={13} strokeWidth={2} />
           </Button>
         </motion.div>
       ) : (
@@ -108,7 +108,7 @@ function ModelSelector() {
           className="h-7 gap-1 rounded-md px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {selected.label}
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowDown01Icon}
             size={12}
             strokeWidth={2}

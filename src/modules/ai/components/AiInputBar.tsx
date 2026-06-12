@@ -8,8 +8,8 @@ import {
   HashtagIcon,
   Key01Icon,
   TerminalIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
@@ -370,7 +370,7 @@ function ChipsRow({
             className="group flex items-center gap-1 rounded-md border border-border/60 bg-card px-1.5 py-0.5 text-[11px]"
             title={cmd.label}
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={cmd.icon}
               size={11}
               strokeWidth={1.75}
@@ -383,7 +383,7 @@ function ChipsRow({
               className="ml-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
               aria-label="Remove command"
             >
-              <HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
+              <AppIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
             </button>
           </motion.div>
         ))}
@@ -398,7 +398,7 @@ function ChipsRow({
             className="group flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
             title={s.description || s.name}
           >
-            <HugeiconsIcon
+            <AppIcon
               icon={HashtagIcon}
               size={11}
               strokeWidth={2}
@@ -411,7 +411,7 @@ function ChipsRow({
               className="ml-0.5 opacity-0 transition-opacity group-hover:opacity-100"
               aria-label="Remove snippet"
             >
-              <HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
+              <AppIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
             </button>
           </motion.div>
         ))}
@@ -428,7 +428,7 @@ function ChipsRow({
             {f.kind === "image" && f.url ? (
               <img src={f.url} alt="" className="size-4 rounded object-cover" />
             ) : f.kind === "selection" ? (
-              <HugeiconsIcon
+              <AppIcon
                 icon={f.source === "editor" ? CodeIcon : TerminalIcon}
                 size={11}
                 strokeWidth={1.75}
@@ -453,7 +453,7 @@ function ChipsRow({
               className="ml-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
               aria-label="Remove"
             >
-              <HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
+              <AppIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
             </button>
           </motion.div>
         ))}
@@ -491,7 +491,7 @@ export function AiInputBarConnect({ onAdd }: { onAdd: () => void }) {
           OS keychain.
         </span>
         <Button size="xs" onClick={onAdd}>
-          <HugeiconsIcon icon={Key01Icon} />
+          <AppIcon icon={Key01Icon} />
           Connect provider
         </Button>
       </div>

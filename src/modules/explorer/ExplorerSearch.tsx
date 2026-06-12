@@ -11,8 +11,8 @@ import {
   Cancel01Icon,
   Folder01Icon,
   Search01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { invoke } from "@tauri-apps/api/core";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { motion } from "motion/react";
@@ -175,7 +175,7 @@ export const ExplorerSearch = forwardRef<ExplorerSearchHandle, Props>(function E
           initial={{ opacity: 0, transform: "translateY(-15px)" }}
           animate={{ opacity: 1, transform: "translateY(0px)" }}
         >
-          <HugeiconsIcon
+          <AppIcon
             icon={Search01Icon}
             size={13}
             strokeWidth={2}
@@ -219,7 +219,7 @@ export const ExplorerSearch = forwardRef<ExplorerSearchHandle, Props>(function E
               className="absolute top-1/2 right-3.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Clear search"
             >
-              <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={2} />
+              <AppIcon icon={Cancel01Icon} size={11} strokeWidth={2} />
             </button>
           ) : null}
         </motion.div>
@@ -261,7 +261,7 @@ export const ExplorerSearch = forwardRef<ExplorerSearchHandle, Props>(function E
                         {url ? (
                           <img src={url} alt="" className="size-3.5 shrink-0" />
                         ) : (
-                          <HugeiconsIcon
+                          <AppIcon
                             icon={Folder01Icon}
                             size={13}
                             strokeWidth={1.75}

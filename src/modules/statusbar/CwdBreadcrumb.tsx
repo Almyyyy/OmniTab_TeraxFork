@@ -18,8 +18,8 @@ import {
   Folder01Icon,
   Home03Icon,
   MoreHorizontalIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { currentWorkspaceEnv } from "@/modules/workspace";
@@ -154,7 +154,7 @@ function BreadcrumbSegment({
               className="gap-1 text-muted-foreground hover:text-foreground"
             >
               {isHome ? (
-                <HugeiconsIcon
+                <AppIcon
                   icon={Home03Icon}
                   className="size-3"
                   strokeWidth={1.75}
@@ -209,7 +209,7 @@ function CurrentSegmentDropdown({
         <BreadcrumbPage className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-foreground hover:bg-accent">
           {label === "~" ? (
             <>
-              <HugeiconsIcon
+              <AppIcon
                 icon={Home03Icon}
                 className="size-3"
                 strokeWidth={1.75}
@@ -219,7 +219,7 @@ function CurrentSegmentDropdown({
           ) : (
             label
           )}
-          <HugeiconsIcon
+          <AppIcon
             icon={ArrowDown01Icon}
             className="size-3 opacity-70"
             strokeWidth={2}
@@ -243,7 +243,7 @@ function CurrentSegmentDropdown({
                 onCd(path.endsWith("/") ? `${path}${name}` : `${path}/${name}`)
               }
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={Folder01Icon}
                 className="size-3.5 text-muted-foreground"
                 strokeWidth={1.75}
@@ -274,7 +274,7 @@ function CollapsedSegments({
               title="Show hidden folders"
               className="flex items-center rounded-sm px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={MoreHorizontalIcon}
                 className="size-3"
                 strokeWidth={1.75}
@@ -287,7 +287,7 @@ function CollapsedSegments({
                 key={s.fullPath}
                 onSelect={() => onCd(s.fullPath)}
               >
-                <HugeiconsIcon
+                <AppIcon
                   icon={s.isHome ? Home03Icon : Folder01Icon}
                   className="size-3.5 text-muted-foreground"
                   strokeWidth={1.75}

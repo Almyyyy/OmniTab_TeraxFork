@@ -14,7 +14,7 @@ import {
   SidebarLeftIcon,
   SparklesIcon,
   TerminalIcon,
-} from "@hugeicons/core-free-icons";
+} from "@/components/icons";
 
 type CommandIcon = typeof TerminalIcon;
 

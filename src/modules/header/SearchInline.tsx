@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { EditorPaneHandle } from "@/modules/editor";
-import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Cancel01Icon, Search01Icon } from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import type { SearchAddon } from "@xterm/addon-search";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -131,7 +131,7 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
               transition={{ duration: 0.12 }}
               className="absolute inset-0"
             >
-              <HugeiconsIcon
+              <AppIcon
                 icon={Search01Icon}
                 size={13}
                 strokeWidth={1.75}
@@ -176,7 +176,7 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
                   className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                   aria-label="Clear search"
                 >
-                  <HugeiconsIcon
+                  <AppIcon
                     icon={Cancel01Icon}
                     size={11}
                     strokeWidth={2}
@@ -200,7 +200,7 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
                 onClick={focus}
                 title={tooltipTitle}
               >
-                <HugeiconsIcon
+                <AppIcon
                   icon={Search01Icon}
                   size={15}
                   strokeWidth={1.75}

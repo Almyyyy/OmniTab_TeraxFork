@@ -10,8 +10,8 @@ import {
   Settings01Icon,
   UserMultiple02Icon,
   KeyboardIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+} from "@/components/icons";
+import { AppIcon } from "@/components/icons";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { JSX, useEffect, useState } from "react";
 import { AboutSection } from "./sections/AboutSection";
@@ -99,7 +99,7 @@ export function SettingsApp() {
                 value={t.id}
                 className="h-6 gap-1.5 px-2.5 text-[11.5px]"
               >
-                <HugeiconsIcon icon={t.icon} size={12} strokeWidth={1.75} />
+                <AppIcon icon={t.icon} size={12} strokeWidth={1.75} />
                 <span>{t.label}</span>
               </TabsTrigger>
             ))}
